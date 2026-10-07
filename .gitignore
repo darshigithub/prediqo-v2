@@ -1,0 +1,143 @@
+# ==============================================================================
+# Prediqo — Root .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Secrets & Environment Variables
+# ------------------------------------------------------------------------------
+.env
+.env.*
+*.env
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+!*.env.example
+
+# ------------------------------------------------------------------------------
+# 2. Python & Virtual Environments
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+pip-wheel-metadata/
+
+# ------------------------------------------------------------------------------
+# 3. Node & Frontend Build Artifacts
+# ------------------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+frontend/dist/
+dist/
+frontend/dist-ssr/
+frontend/.vite/
+*.local
+*.tsbuildinfo
+
+# ------------------------------------------------------------------------------
+# 4. Storage, Datasets, DuckDB & Models (CRITICAL: prevents GitHub >100MB rejection)
+# ------------------------------------------------------------------------------
+# Parquet data files can exceed GitHub's 100MB limit (e.g. ds_d5484af7.parquet is ~147MB)
+data/datasets/*
+!data/datasets/.gitkeep
+
+# User uploaded files (preserve sample ecommerce_sales.csv for testing/demo)
+data/uploads/*
+!data/uploads/.gitkeep
+!data/uploads/ecommerce_sales.csv
+
+# Runtime dataset metadata and generated dashboards
+data/metadata/*
+!data/metadata/.gitkeep
+
+# Runtime background jobs & ingestion state
+data/jobs/*
+!data/jobs/.gitkeep
+
+# Runtime query result cache
+data/cache/*
+!data/cache/.gitkeep
+
+# Trained ML models and feature schemas
+data/models/*
+!data/models/.gitkeep
+
+# Secondary/nested runtime data directories & database files
+backend/data/
+*.parquet
+*.parquet.tmp
+*.duckdb
+*.duckdb.wal
+*.db
+*.sqlite
+*.sqlite3
+
+# Serialized ML model binaries
+*.joblib
+*.pkl
+*.pickle
+
+# ------------------------------------------------------------------------------
+# 5. Logs & Temporary Files
+# ------------------------------------------------------------------------------
+*.log
+logs/
+*.tmp
+*.temp
+scratch/
+scripts/benchmark_results.json
+
+# ------------------------------------------------------------------------------
+# 6. IDEs & Editors
+# ------------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ------------------------------------------------------------------------------
+# 7. Operating System Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
