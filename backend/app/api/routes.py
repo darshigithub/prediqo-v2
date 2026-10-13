@@ -23,6 +23,7 @@ from ..models.schemas import (
     PostgresConfig,
 )
 from ..prediction.models import PredictRequest, TrainRequest
+from ..forecasting.models import ForecastPredictRequest, ForecastTrainRequest
 from ..ai.analyst import process_question
 from ..ai.llm_client import list_available_providers
 from ..ai.openai_client import OpenAIConfigError, OpenAIServiceError
@@ -609,4 +610,229 @@ def prediction_predict(payload: PredictRequest):
         raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(500, f"Prediction failed: {e}")
+
+
+# ---------- Forecasting Layer ----------
+@router.get("/forecast/feasibility/{dataset_id}")
+def forecast_feasibility(dataset_id: str):
+    from ..forecasting.service import ForecastingService
+    try:
+        return ForecastingService.get_feasibility(dataset_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Forecast feasibility check failed: {e}")
+
+
+@router.post("/forecast/train")
+def forecast_train(payload: ForecastTrainRequest):
+    from ..forecasting.service import ForecastingService
+    try:
+        return ForecastingService.train_and_forecast(payload)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Forecasting failed: {e}")
+
+
+@router.get("/forecast/models/{identifier}")
+def forecast_models(identifier: str):
+    """Retrieves forecast model details if identifier starts with fc_, or lists models if dataset_id."""
+    from ..forecasting.service import ForecastingService
+    if identifier.startswith("fc_") or identifier.startswith("forecast_"):
+        try:
+            return ForecastingService.get_model(identifier)
+        except KeyError:
+            raise HTTPException(404, f"Forecasting model '{identifier}' not found")
+    else:
+        return {"models": ForecastingService.list_models(identifier)}
+
+
+@router.get("/forecast/models/{model_id}/details")
+def forecast_model_details(model_id: str):
+    from ..forecasting.service import ForecastingService
+    try:
+        return ForecastingService.get_model(model_id)
+    except KeyError:
+        raise HTTPException(404, f"Forecasting model '{model_id}' not found")
+
+
+@router.post("/forecast/predict")
+def forecast_predict(payload: ForecastPredictRequest):
+    from ..forecasting.service import ForecastingService
+    try:
+        return ForecastingService.predict(payload)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Forecast generation failed: {e}")
+
+
+# ---------- Capability Assessment Layer ----------
+@router.get("/capabilities/{dataset_id}")
+def dataset_capabilities_get(dataset_id: str):
+    from ..capabilities.registry import assess_capabilities
+    try:
+        return assess_capabilities(dataset_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Capability assessment failed: {e}")
+
+
+@router.post("/capabilities/{dataset_id}")
+def dataset_capabilities_post(dataset_id: str, payload: dict = {}):
+    from ..capabilities.registry import assess_capabilities
+    try:
+        return assess_capabilities(dataset_id, manual_overrides=payload.get("mappings"))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Capability assessment failed: {e}")
+
+
+# ---------- Explainability (XAI) Layer ----------
+@router.get("/explainability/feasibility/{identifier}")
+def explainability_feasibility(identifier: str, model_type: Optional[str] = "prediction"):
+    from ..explainability.service import ExplainabilityService
+    from ..prediction.model_store import get_model_metadata
+    from ..forecasting.model_store import get_forecast_metadata
+
+    dataset_id = identifier
+    if identifier.startswith("model_"):
+        meta = get_model_metadata(identifier)
+        if meta:
+            dataset_id = meta.dataset_id
+    elif identifier.startswith("forecast_") or identifier.startswith("fc_"):
+        fc_meta = get_forecast_metadata(identifier)
+        if fc_meta:
+            dataset_id = fc_meta.dataset_id
+
+    try:
+        return ExplainabilityService.get_feasibility(dataset_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Explainability feasibility check failed: {e}")
+
+
+@router.post("/explainability/local")
+def explainability_local_direct(payload: dict):
+    from ..explainability.models import LocalExplanationRequest
+    from ..explainability.service import ExplainabilityService
+    try:
+        model_id = payload.get("model_id")
+        if not model_id:
+            raise HTTPException(400, "Missing required 'model_id' in payload.")
+        req = LocalExplanationRequest(
+            features=payload.get("features", {}),
+            target_class=payload.get("target_class"),
+            method_preference=payload.get("method_preference", "auto"),
+        )
+        return ExplainabilityService.explain_local(model_id, req)
+    except HTTPException:
+        raise
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Local explanation failed: {e}")
+
+
+@router.get("/explainability/global/{model_id}")
+def explainability_global_direct(model_id: str, max_sample_rows: int = 100):
+    from ..explainability.service import ExplainabilityService
+    try:
+        return ExplainabilityService.explain_global(model_id, max_sample_rows=max_sample_rows)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Global explanation failed: {e}")
+
+
+@router.api_route("/explainability/forecast/{model_id}", methods=["GET", "POST"])
+def explainability_forecast_direct(model_id: str):
+    from ..explainability.service import ExplainabilityService
+    try:
+        return ExplainabilityService.explain_forecast(model_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Forecast explanation failed: {e}")
+
+
+@router.get("/explainability/models/{model_id}/global")
+def explainability_global(model_id: str, max_sample_rows: int = 100):
+    from ..explainability.service import ExplainabilityService
+    try:
+        return ExplainabilityService.explain_global(model_id, max_sample_rows=max_sample_rows)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Global explanation failed: {e}")
+
+
+@router.post("/explainability/models/{model_id}/local")
+def explainability_local(model_id: str, payload: dict):
+    from ..explainability.models import LocalExplanationRequest
+    from ..explainability.service import ExplainabilityService
+    try:
+        req = LocalExplanationRequest(**payload)
+        return ExplainabilityService.explain_local(model_id, req)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Local explanation failed: {e}")
+
+
+@router.api_route("/explainability/forecast/{model_id}/explain", methods=["GET", "POST"])
+def explainability_forecast(model_id: str):
+    from ..explainability.service import ExplainabilityService
+    try:
+        return ExplainabilityService.explain_forecast(model_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Forecast explanation failed: {e}")
+
+
+
+
+
+# ---------- Decision Layer MVP ----------
+from ..decisions.routes import router as decisions_router
+
+router.include_router(decisions_router)
+
+
+# ---------- AI Business Explanation Layer ----------
+from ..ai.routes import router as ai_explanations_router
+
+router.include_router(ai_explanations_router, prefix="/ai/explain")
+router.include_router(ai_explanations_router, prefix="/v1/ai/explain")
 

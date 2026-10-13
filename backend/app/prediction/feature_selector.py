@@ -41,6 +41,37 @@ def check_leakage_warning(target_col: str, feature_col: str) -> str | None:
     return None
 
 
+def check_correlation_leakage(
+    df: Any, target_col: str, feature_cols: list[str], threshold: float = 0.98
+) -> list[str]:
+    """Detects suspiciously high numeric correlations between features and target."""
+    warnings: list[str] = []
+    if target_col not in df.columns:
+        return warnings
+
+    target_s = df[target_col]
+    if not (hasattr(target_s, "dtype") and any(k in str(target_s.dtype).lower() for k in ("int", "float", "double"))):
+        return warnings
+
+    for feat in feature_cols:
+        if feat == target_col or feat not in df.columns:
+            continue
+        feat_s = df[feat]
+        if hasattr(feat_s, "dtype") and any(k in str(feat_s.dtype).lower() for k in ("int", "float", "double")):
+            try:
+                corr = float(target_s.corr(feat_s))
+                if not (corr != corr) and abs(corr) >= threshold:  # check not NaN
+                    warnings.append(
+                        f"Warning: Feature '{feat}' has an extremely high correlation ({round(corr, 3)}) with target '{target_col}', "
+                        "which may indicate direct mathematical derivation or target leakage."
+                    )
+            except Exception:
+                pass
+
+    return warnings
+
+
+
 def recommend_features(
     columns: list[dict], target_col: str, row_count: int
 ) -> tuple[list[str], list[str], list[str]]:

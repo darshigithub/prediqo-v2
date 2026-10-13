@@ -21,6 +21,7 @@ from .evaluator import evaluate_models
 from .feasibility import check_feasibility
 from .feature_importance import extract_feature_importance
 from .feature_selector import (
+    check_correlation_leakage,
     check_leakage_warning,
     recommend_features,
     validate_selected_features,
@@ -33,6 +34,7 @@ from .model_store import (
     validate_model_version,
 )
 from .models import (
+    ActualVsPredictedPoint,
     FeasibilityResponse,
     ModelListItem,
     ModelMetadata,
@@ -121,8 +123,12 @@ class PredictionService:
         if not parquet_path or not parquet_path.exists():
             raise FileNotFoundError(f"Parquet storage not found for dataset '{request.dataset_id}'.")
 
+        load_cols = list(selected_features)
+        if request.group_column and request.group_column in all_col_names and request.group_column not in load_cols:
+            load_cols.append(request.group_column)
+
         df, sample_warnings = load_selected_columns_from_parquet(
-            parquet_path, target_col, selected_features
+            parquet_path, target_col, load_cols
         )
         all_warnings.extend(sample_warnings)
 
@@ -136,8 +142,15 @@ class PredictionService:
         if len(clean_df) < 10:
             raise ValueError(f"Target '{target_col}' has fewer than 10 valid non-null rows.")
 
+        # Check for suspiciously high correlation leakage
+        corr_warnings = check_correlation_leakage(clean_df, target_col, selected_features)
+        for cw in corr_warnings:
+            if cw not in all_warnings:
+                all_warnings.append(cw)
+
         X = clean_df[selected_features]
         y = clean_df[target_col]
+        groups_series = clean_df[request.group_column] if (request.group_column and request.group_column in clean_df) else None
 
         # 5. Build Preprocessing Pipeline
         date_cols, num_cols, cat_cols = classify_feature_types(X, selected_features, columns_meta)
@@ -146,19 +159,41 @@ class PredictionService:
         )
 
         # 6. Split Data
+        val_strategy = request.validation_strategy or "kfold"
         X_train, X_test, y_train, y_test = split_data(
-            X, y, problem_type, test_size=request.test_size, random_state=request.random_state
+            X,
+            y,
+            problem_type,
+            test_size=request.test_size,
+            random_state=request.random_state,
+            validation_strategy=val_strategy,
+            groups=groups_series,
         )
+
+        groups_train = groups_series.iloc[X_train.index] if groups_series is not None else None
 
         # 7. Train Candidate Models
         candidate_models = train_candidate_models(
             preprocessor, X_train, y_train, problem_type, random_state=request.random_state
         )
 
-        # 8. Evaluate Models and Select Best Model
-        candidate_results, best_algo_name, best_summary = evaluate_models(
-            candidate_models, X_test, y_test, problem_type
+        # 8. Evaluate Models and Select Best Model with Cross-Validation
+        candidate_results, best_algo_name, best_summary, actual_vs_predicted, diagnostics = evaluate_models(
+            candidate_models,
+            X_test,
+            y_test,
+            problem_type,
+            X_train=X_train,
+            y_train=y_train,
+            cv_folds=request.cv_folds,
+            validation_strategy=val_strategy,
+            random_state=request.random_state,
+            groups_train=groups_train,
         )
+
+        for rn in diagnostics.get("reliability_notes", []):
+            if rn not in all_warnings:
+                all_warnings.append(rn)
 
         winning_pipeline = candidate_models[best_algo_name]
 
@@ -195,8 +230,18 @@ class PredictionService:
             primary_metric_value=best_summary.primary_metric_value,
             preprocessing_description=prep_desc,
             metrics=best_summary.metrics,
+            cv_metrics=best_summary.cv_metrics,
+            validation_strategy=val_strategy,
+            cv_folds=request.cv_folds,
+            actual_vs_predicted=actual_vs_predicted,
             candidate_models=candidate_results,
             feature_importance=feature_importance,
+            is_reliable=diagnostics["is_reliable"],
+            reliability_notes=diagnostics["reliability_notes"],
+            class_distribution=diagnostics["class_distribution"],
+            confusion_matrix=diagnostics["confusion_matrix"],
+            class_labels=diagnostics["class_labels"],
+            per_class_metrics=diagnostics["per_class_metrics"],
         )
 
         save_model(model_id, winning_pipeline, model_meta, sample_feature_values)
@@ -212,9 +257,22 @@ class PredictionService:
             candidate_models=candidate_results,
             training_row_count=len(X_train),
             test_row_count=len(X_test),
+            validation_strategy=val_strategy,
+            cv_folds=request.cv_folds,
+            actual_vs_predicted=actual_vs_predicted,
+            training_time_ms=getattr(winning_pipeline, "_training_time_ms", None),
             feature_importance=feature_importance,
+            is_reliable=diagnostics["is_reliable"],
+            reliability_notes=diagnostics["reliability_notes"],
+            class_distribution=diagnostics["class_distribution"],
+            confusion_matrix=diagnostics["confusion_matrix"],
+            class_labels=diagnostics["class_labels"],
+            per_class_metrics=diagnostics["per_class_metrics"],
+            baseline_algorithm=diagnostics.get("baseline_algorithm"),
             warnings=all_warnings,
         )
+
+
 
     @classmethod
     def list_models(cls, dataset_id: str, current_version_only: bool = False) -> list[ModelListItem]:

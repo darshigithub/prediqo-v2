@@ -1,0 +1,157 @@
+{
+  "evaluation_id": "eval_1ab07a22",
+  "scenario": "inventory",
+  "dataset_id": null,
+  "prediction_model_id": null,
+  "forecast_model_id": null,
+  "operational_facts": {
+    "predicted_demand": 1500,
+    "available_inventory": 900,
+    "available_inventory_unit": "units",
+    "max_inventory_capacity": 5000
+  },
+  "total_rules_evaluated": 3,
+  "triggered_rules_count": 1,
+  "not_triggered_rules_count": 1,
+  "not_evaluable_rules_count": 1,
+  "rule_results": [
+    {
+      "rule_id": "rule_inv_stockout",
+      "rule_name": "Potential Inventory Stockout Alert",
+      "status": "TRIGGERED",
+      "priority": "high",
+      "field_name": "predicted_demand",
+      "operator": "gt",
+      "evaluated_value": 1500,
+      "threshold_value": 900,
+      "evaluated_unit": null,
+      "threshold_unit": "units",
+      "message": "Rule triggered: predicted_demand (1500) > 900 units. Predicted demand (1500) exceeds available inventory (900 units).",
+      "recommended_action": "Review inventory replenishment immediately to prevent potential stockouts.",
+      "requires_approval": true,
+      "evidence_items": [
+        {
+          "field_name": "predicted_demand",
+          "source_type": "operational_fact",
+          "value": 1500,
+          "unit": null,
+          "source_id": "user_input",
+          "source_label": "User Provided Operational Fact",
+          "timestamp": "2026-10-12T19:05:55.025152+00:00"
+        },
+        {
+          "field_name": "available_inventory",
+          "source_type": "operational_fact",
+          "value": 900,
+          "unit": "units",
+          "source_id": "user_input",
+          "source_label": "User Provided Operational Fact",
+          "timestamp": "2026-10-12T19:05:55.025152+00:00"
+        }
+      ]
+    },
+    {
+      "rule_id": "rule_inv_excess",
+      "rule_name": "Excess Inventory Holding Alert",
+      "status": "NOT_TRIGGERED",
+      "priority": "medium",
+      "field_name": "available_inventory",
+      "operator": "gt",
+      "evaluated_value": 900,
+      "threshold_value": 5000,
+      "evaluated_unit": "units",
+      "threshold_unit": "units",
+      "message": "Condition not met: available_inventory (900 units) is not > 5000 units.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": [
+        {
+          "field_name": "available_inventory",
+          "source_type": "operational_fact",
+          "value": 900,
+          "unit": "units",
+          "source_id": "user_input",
+          "source_label": "User Provided Operational Fact",
+          "timestamp": "2026-10-12T19:05:55.025152+00:00"
+        },
+        {
+          "field_name": "max_inventory_capacity",
+          "source_type": "operational_fact",
+          "value": 5000,
+          "unit": null,
+          "source_id": "user_input",
+          "source_label": "User Provided Operational Fact",
+          "timestamp": "2026-10-12T19:05:55.025152+00:00"
+        }
+      ]
+    },
+    {
+      "rule_id": "rule_err_tolerance",
+      "rule_name": "Operational Error Tolerance Exceeded",
+      "status": "NOT_EVALUABLE",
+      "priority": "medium",
+      "field_name": "model_mae",
+      "operator": "gt",
+      "evaluated_value": null,
+      "threshold_value": "max_acceptable_error",
+      "evaluated_unit": null,
+      "threshold_unit": null,
+      "message": "Missing evidence: field 'model_mae' is not present in provided scenario data.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": []
+    }
+  ],
+  "recommendations": [
+    {
+      "recommendation_id": "rec_ffe2e620",
+      "evaluation_id": "eval_1ab07a22",
+      "scenario": "inventory",
+      "title": "Potential Inventory Stockout Alert Action Required",
+      "recommended_action": "Review inventory replenishment immediately to prevent potential stockouts.",
+      "description": "Rule triggered: predicted_demand (1500) > 900 units. Predicted demand (1500) exceeds available inventory (900 units).",
+      "priority": "high",
+      "status": "pending_approval",
+      "triggered_rule_ids": [
+        "rule_inv_stockout"
+      ],
+      "supporting_evidence": [
+        {
+          "field_name": "predicted_demand",
+          "source_type": "operational_fact",
+          "value": 1500,
+          "unit": null,
+          "source_id": "user_input",
+          "source_label": "User Provided Operational Fact",
+          "timestamp": "2026-10-12T19:05:55.025152+00:00"
+        },
+        {
+          "field_name": "available_inventory",
+          "source_type": "operational_fact",
+          "value": 900,
+          "unit": "units",
+          "source_id": "user_input",
+          "source_label": "User Provided Operational Fact",
+          "timestamp": "2026-10-12T19:05:55.025152+00:00"
+        }
+      ],
+      "missing_evidence": [
+        "Rule 'Operational Error Tolerance Exceeded' not evaluable: Missing evidence: field 'model_mae' is not present in provided scenario data."
+      ],
+      "uncertainty_notes": [
+        "Guidance notice: This recommendation is generated from deterministic business rules and statistical associations.",
+        "It does not guarantee improved operational or financial outcomes.",
+        "1 related rule(s) could not be evaluated due to missing evidence."
+      ],
+      "requires_approval": true,
+      "status_comment": null,
+      "updated_by": "local_user",
+      "created_at": "2026-10-12T19:05:55.025112+00:00",
+      "updated_at": "2026-10-12T19:05:55.025112+00:00"
+    }
+  ],
+  "missing_evidence": [
+    "Rule 'Operational Error Tolerance Exceeded' not evaluable: Missing evidence: field 'model_mae' is not present in provided scenario data."
+  ],
+  "created_at": "2026-10-12T19:05:55.025112+00:00"
+}

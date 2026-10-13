@@ -15,14 +15,20 @@ logger = logging.getLogger(__name__)
 def infer_unit_from_target(target_name: str, problem_type: str) -> Optional[str]:
     """Infers display unit if target represents time, currency, or count."""
     t_lower = target_name.lower()
-    if "days" in t_lower:
+    if any(k in t_lower for k in ("revenue", "amount", "price", "cost", "sales", "spend", "salary", "fee", "budget")):
+        return "$"
+    if any(k in t_lower for k in ("days", "day")):
         return "days"
-    if "hours" in t_lower:
+    if any(k in t_lower for k in ("hours", "hr", "hrs")):
         return "hours"
-    if "revenue" in t_lower or "amount" in t_lower or "price" in t_lower or "cost" in t_lower:
-        return None  # currency formatting handled by UI
-    if "percent" in t_lower or "pct" in t_lower or "rate" in t_lower:
+    if any(k in t_lower for k in ("minutes", "mins", "min")):
+        return "mins"
+    if any(k in t_lower for k in ("percent", "pct", "rate", "ratio", "margin")):
         return "%"
+    if any(k in t_lower for k in ("count", "qty", "quantity", "units", "items", "volume")):
+        return "units"
+    if any(k in t_lower for k in ("score", "rating")):
+        return "pts"
     return None
 
 
@@ -43,6 +49,10 @@ def predict_single_record(
             f"Missing features {missing_cols[:3]} were automatically imputed using training statistics."
         )
 
+    extra_cols = [c for c in input_features if c not in expected_cols]
+    if extra_cols:
+        warnings.append(f"Ignored {len(extra_cols)} extra feature(s) not in training schema: {extra_cols[:3]}.")
+
     # 2. Build single-row DataFrame with expected columns
     row_dict = {}
     for col in expected_cols:
@@ -54,6 +64,7 @@ def predict_single_record(
     raw_pred = pipeline.predict(input_df)[0]
 
     probabilities: dict[str, float] | None = None
+    probability_note: Optional[str] = None
     problem_type = metadata.problem_type.lower()
 
     if problem_type == "regression":
@@ -83,12 +94,13 @@ def predict_single_record(
                         str(cls_name): round(float(prob), 4)
                         for cls_name, prob in zip(classes, proba_array)
                     }
+                    probability_note = "Model probabilities represent uncalibrated relative class scores."
             except Exception as e:
                 logger.debug("Failed to calculate predict_proba: %s", e)
 
         confidence_str = ""
         if probabilities and pred_value in probabilities:
-            confidence_str = f" ({round(probabilities[pred_value] * 100, 1)}% confidence)"
+            confidence_str = f" (estimated score: {round(probabilities[pred_value] * 100, 1)}%)"
 
         explanation = (
             f"Predicted {metadata.target_column} is '{pred_value}'{confidence_str} "
@@ -101,6 +113,8 @@ def predict_single_record(
         unit=unit,
         problem_type=metadata.problem_type,
         probabilities=probabilities,
+        probability_note=probability_note,
         explanation=explanation,
         warnings=warnings,
     )
+

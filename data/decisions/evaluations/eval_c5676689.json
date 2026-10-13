@@ -1,0 +1,85 @@
+{
+  "evaluation_id": "eval_c5676689",
+  "scenario": "inventory",
+  "dataset_id": "ds_c9a77baa",
+  "prediction_model_id": "model_e5a4af22",
+  "forecast_model_id": "fc_2fdb29ba",
+  "operational_facts": {
+    "available_inventory": 150,
+    "safety_stock": 50,
+    "lead_time_days": 7
+  },
+  "total_rules_evaluated": 3,
+  "triggered_rules_count": 0,
+  "not_triggered_rules_count": 0,
+  "not_evaluable_rules_count": 3,
+  "rule_results": [
+    {
+      "rule_id": "rule_inv_stockout",
+      "rule_name": "Potential Inventory Stockout Alert",
+      "status": "NOT_EVALUABLE",
+      "priority": "high",
+      "field_name": "predicted_demand",
+      "operator": "gt",
+      "evaluated_value": null,
+      "threshold_value": "available_inventory",
+      "evaluated_unit": "units",
+      "threshold_unit": null,
+      "message": "Missing evidence: field 'predicted_demand' is not present in provided scenario data.",
+      "recommended_action": null,
+      "requires_approval": true,
+      "evidence_items": []
+    },
+    {
+      "rule_id": "rule_inv_excess",
+      "rule_name": "Excess Inventory Holding Alert",
+      "status": "NOT_EVALUABLE",
+      "priority": "medium",
+      "field_name": "available_inventory",
+      "operator": "gt",
+      "evaluated_value": 150,
+      "threshold_value": "field:max_inventory_capacity",
+      "evaluated_unit": null,
+      "threshold_unit": null,
+      "message": "Missing evidence: dynamic comparison target 'max_inventory_capacity' is not available.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": [
+        {
+          "field_name": "available_inventory",
+          "source_type": "operational_fact",
+          "value": 150,
+          "unit": null,
+          "source_id": "user_input",
+          "source_label": "User Provided Operational Fact",
+          "timestamp": "2026-10-12T17:47:11.355582+00:00"
+        }
+      ]
+    },
+    {
+      "rule_id": "rule_err_tolerance",
+      "rule_name": "Operational Error Tolerance Exceeded",
+      "status": "NOT_EVALUABLE",
+      "priority": "medium",
+      "field_name": "model_mae",
+      "operator": "gt",
+      "evaluated_value": null,
+      "threshold_value": "max_acceptable_error",
+      "evaluated_unit": null,
+      "threshold_unit": null,
+      "message": "Missing evidence: field 'model_mae' is not present in provided scenario data.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": []
+    }
+  ],
+  "recommendations": [],
+  "missing_evidence": [
+    "Failed to load prediction model 'model_e5a4af22': 'ModelMetadata' object has no attribute 'get'",
+    "Failed to load forecast model 'fc_2fdb29ba': 'ForecastModelMetadata' object has no attribute 'get'",
+    "Rule 'Potential Inventory Stockout Alert' not evaluable: Missing evidence: field 'predicted_demand' is not present in provided scenario data.",
+    "Rule 'Excess Inventory Holding Alert' not evaluable: Missing evidence: dynamic comparison target 'max_inventory_capacity' is not available.",
+    "Rule 'Operational Error Tolerance Exceeded' not evaluable: Missing evidence: field 'model_mae' is not present in provided scenario data."
+  ],
+  "created_at": "2026-10-12T17:47:11.355531+00:00"
+}

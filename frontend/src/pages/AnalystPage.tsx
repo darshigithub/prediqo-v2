@@ -219,13 +219,13 @@ export default function AnalystPage() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <span>AI Analyst</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
               Multi-LLM Engine
             </span>
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-600 mt-0.5">
             Supports OpenAI, Anthropic Claude, Google Gemini, Groq, and custom endpoints.
           </p>
         </div>
@@ -510,19 +510,19 @@ export default function AnalystPage() {
                     {/* Table & Chart display */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Result Table */}
-                      <div className="border border-slate-100 rounded-lg p-3 flex flex-col">
+                      <div className="border border-slate-200 rounded-lg p-3 flex flex-col bg-white">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-semibold text-slate-700">Data Table</span>
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-xs font-bold text-slate-800">Data Table</span>
+                          <span className="text-[11px] text-slate-500 font-medium">
                             {resp.result.row_count} rows
                           </span>
                         </div>
                         <div className="overflow-auto max-h-64 flex-1">
                           <table className="min-w-full text-xs">
                             <thead>
-                              <tr className="bg-slate-50 text-left text-slate-500 sticky top-0">
+                              <tr className="bg-slate-50 text-left text-slate-700 font-semibold border-b border-slate-200 sticky top-0">
                                 {resp.result.columns.map((col) => (
-                                  <th key={col} className="px-2.5 py-1.5 font-medium whitespace-nowrap">
+                                  <th key={col} className="px-2.5 py-1.5 font-semibold text-slate-700 whitespace-nowrap">
                                     {col.replace(/_/g, ' ')}
                                   </th>
                                 ))}
@@ -532,7 +532,7 @@ export default function AnalystPage() {
                               {resp.result.rows.map((row, rIdx) => (
                                 <tr key={rIdx} className="border-t border-slate-100 hover:bg-slate-50">
                                   {resp.result.columns.map((col, cIdx) => (
-                                    <td key={cIdx} className="px-2.5 py-1.5 whitespace-nowrap">
+                                    <td key={cIdx} className="px-2.5 py-1.5 whitespace-nowrap font-mono text-slate-800">
                                       {fmt(row[col])}
                                     </td>
                                   ))}

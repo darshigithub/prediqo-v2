@@ -229,8 +229,60 @@ Prediqo incorporates a dedicated supervised machine learning prediction layer (`
 - **`ModelTrainer` ([`trainer.py`](file:///D:/AIML/prediqo-v2/backend/app/prediction/trainer.py))**: Fits three candidate models per problem type:
   - Regression: `LinearRegression`, `RandomForestRegressor`, `GradientBoostingRegressor`.
   - Classification: `LogisticRegression`, `RandomForestClassifier`, `GradientBoostingClassifier`.
-- **`ModelEvaluator` ([`evaluator.py`](file:///D:/AIML/prediqo-v2/backend/app/prediction/evaluator.py))**: Evaluates candidate models on a held-out 20% test set (MAE/RMSE/R² for regression; Accuracy/Precision/Recall/F1 for classification) and selects the best model.
+- **`ModelEvaluator` ([`evaluator.py`](file:///D:/AIML/prediqo-v2/backend/app/prediction/evaluator.py))**: Evaluates candidate models using K-fold Cross-Validation and holdout test set (MAE/RMSE/R² for regression; Accuracy/Precision/Recall/F1 for classification), calculates actual-vs-predicted residual points, and selects best model using lowest CV MAE.
 - **`FeatureImportance` ([`feature_importance.py`](file:///D:/AIML/prediqo-v2/backend/app/prediction/feature_importance.py))**: Extracts tree importances or linear coefficients and maps one-hot encoded features back to root column names.
 - **`ModelStore` ([`model_store.py`](file:///D:/AIML/prediqo-v2/backend/app/prediction/model_store.py))**: Persists model pipelines, schemas, and metrics in `data/models/{model_id}/` with strict dataset version matching.
 - **`Predictor` ([`predictor.py`](file:///D:/AIML/prediqo-v2/backend/app/prediction/predictor.py))**: Executes single-record inference and returns predictions, class probabilities, and human-readable explanations.
+
+---
+
+## 11. Time-Series Forecasting Intelligence Architecture
+
+Prediqo provides a dedicated time-series forecasting engine (`backend/app/forecasting/`) that operates on chronological series:
+
+```text
+       [ Parquet Analytical Storage ]
+                     |
+         (DuckDB date_trunc Query)
+                     v
+       [ Aggregated Calendar Series ]
+                     |
+         (Continuous Reindexing & Imputation)
+                     v
+       [ Backtesting Split (N - H vs H) ]
+                     |
+         +-----------+-----------+
+         |                       |
+         v                       v
+ [ Candidate Forecasters ] [ Chronological Backtest ]
+ (Naive, SNaive, MA, ES)   (MAE, RMSE, WAPE, zero-safe MAPE)
+         |                       |
+         +-----------+-----------+
+                     |
+                     v
+             [ Best Forecaster ]
+                     |
+        (Project H Steps + Uncertainty Intervals)
+                     v
+   [ Stored Model & Future Projections (80% / 95%) ]
+```
+
+### Key Subsystems
+- **Feasibility & Date Extraction ([`feasibility.py`](file:///D:/AIML/prediqo-v2/backend/app/forecasting/feasibility.py))**: Validates candidate date columns and numeric metrics, falling back to DuckDB `MIN`/`MAX` Parquet expressions, and detects historical staleness (>60 days).
+- **Parquet-Native Aggregation ([`data_preparation.py`](file:///D:/AIML/prediqo-v2/backend/app/forecasting/data_preparation.py))**: Directly executes DuckDB aggregation over Parquet with zero row materialization, followed by strict calendar continuity reindexing and policy-driven imputation.
+- **Candidate Models ([`trainer.py`](file:///D:/AIML/prediqo-v2/backend/app/forecasting/trainer.py))**: Trains `NaiveForecaster`, `SeasonalNaiveForecaster` (seasonal periods 7, 12, 4), `MovingAverageForecaster` (windows 3, 7), `LinearTrendForecaster`, and `ExponentialSmoothingForecaster`.
+- **Chronological Evaluation ([`evaluator.py`](file:///D:/AIML/prediqo-v2/backend/app/forecasting/evaluator.py))**: Enforces chronological backtesting without random shuffle, computing MAE, RMSE, WAPE, and relative error vs Naive baseline (`vs_naive_pct`).
+- **Projection Engine ([`forecaster.py`](file:///D:/AIML/prediqo-v2/backend/app/forecasting/forecaster.py))**: Generates projected future timestamps strictly following historical boundaries, calculating 80% and 95% uncertainty bands scaling with $\sqrt{h}$.
+
+---
+
+## 12. Dataset Flexibility & Capability Registry
+
+Prediqo dynamically analyzes diverse tabular schemas without rigid naming requirements (`backend/app/capabilities/`):
+
+- **Synonym Intelligence ([`semantics.py`](file:///D:/AIML/prediqo-v2/backend/app/standardization/semantics.py))**: Recognizes alternative column headers (e.g. `purchased_on`, `invoice_number`, `net_sales`, `daily_revenue`, `gross_sales`).
+- **Granularity Detection ([`registry.py`](file:///D:/AIML/prediqo-v2/backend/app/capabilities/registry.py))**: Identifies transaction vs line-item duplication via DuckDB distinct count comparisons (`COUNT(DISTINCT id) < COUNT(*)`), preventing repeated order total inflation.
+- **Capability Assessment**: Dynamically determines dataset suitability for regression prediction, classification prediction, time-series forecasting, or both, with clear degradation explanations.
+- **Manual Mapping Overrides**: Supports user corrections to auto-detected field roles via REST API.
+
 

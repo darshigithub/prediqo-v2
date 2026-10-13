@@ -1,0 +1,64 @@
+{
+  "evaluation_id": "eval_f6941734",
+  "scenario": "data_quality",
+  "dataset_id": "ds_f46ecef3",
+  "prediction_model_id": "model_07016d09",
+  "forecast_model_id": null,
+  "operational_facts": {
+    "missing_threshold": 0.15
+  },
+  "total_rules_evaluated": 2,
+  "triggered_rules_count": 0,
+  "not_triggered_rules_count": 1,
+  "not_evaluable_rules_count": 1,
+  "rule_results": [
+    {
+      "rule_id": "rule_dq_completeness",
+      "rule_name": "Data Quality Completeness Warning",
+      "status": "NOT_TRIGGERED",
+      "priority": "high",
+      "field_name": "data_completeness_pct",
+      "operator": "lt",
+      "evaluated_value": 100.0,
+      "threshold_value": 85.0,
+      "evaluated_unit": "%",
+      "threshold_unit": "%",
+      "message": "Condition not met: data_completeness_pct (100.0 %) is not < 85.0 %.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": [
+        {
+          "field_name": "data_completeness_pct",
+          "source_type": "data_quality",
+          "value": 100.0,
+          "unit": "%",
+          "source_id": "ds_f46ecef3",
+          "source_label": "Dataset ds_f46ecef3 Quality",
+          "timestamp": "2026-10-12T19:15:35.851525+00:00"
+        }
+      ]
+    },
+    {
+      "rule_id": "rule_err_tolerance",
+      "rule_name": "Operational Error Tolerance Exceeded",
+      "status": "NOT_EVALUABLE",
+      "priority": "medium",
+      "field_name": "model_mae",
+      "operator": "gt",
+      "evaluated_value": null,
+      "threshold_value": "max_acceptable_error",
+      "evaluated_unit": null,
+      "threshold_unit": null,
+      "message": "Missing evidence: field 'model_mae' is not present in provided scenario data.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": []
+    }
+  ],
+  "recommendations": [],
+  "missing_evidence": [
+    "Failed to load prediction model 'model_07016d09': 'ModelMetadata' object has no attribute 'get'",
+    "Rule 'Operational Error Tolerance Exceeded' not evaluable: Missing evidence: field 'model_mae' is not present in provided scenario data."
+  ],
+  "created_at": "2026-10-12T19:15:35.851492+00:00"
+}

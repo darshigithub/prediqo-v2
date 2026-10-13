@@ -1,0 +1,46 @@
+{
+  "recommendation_id": "rec_e28007cd",
+  "evaluation_id": "eval_c69c548f",
+  "scenario": "inventory",
+  "title": "Potential Inventory Stockout Alert Action Required",
+  "recommended_action": "Review inventory replenishment immediately to prevent potential stockouts.",
+  "description": "Rule triggered: predicted_demand (1500) > 900 units. Predicted demand (1500) exceeds available inventory (900 units).",
+  "priority": "high",
+  "status": "rejected",
+  "triggered_rule_ids": [
+    "rule_inv_stockout"
+  ],
+  "supporting_evidence": [
+    {
+      "field_name": "predicted_demand",
+      "source_type": "operational_fact",
+      "value": 1500,
+      "unit": null,
+      "source_id": "user_input",
+      "source_label": "User Provided Operational Fact",
+      "timestamp": "2026-10-10T13:48:14.657698+00:00"
+    },
+    {
+      "field_name": "available_inventory",
+      "source_type": "operational_fact",
+      "value": 900,
+      "unit": "units",
+      "source_id": "user_input",
+      "source_label": "User Provided Operational Fact",
+      "timestamp": "2026-10-10T13:48:14.657698+00:00"
+    }
+  ],
+  "missing_evidence": [
+    "Rule 'Operational Error Tolerance Exceeded' not evaluable: Missing evidence: field 'model_mae' is not present in provided scenario data."
+  ],
+  "uncertainty_notes": [
+    "Guidance notice: This recommendation is generated from deterministic business rules and statistical associations.",
+    "It does not guarantee improved operational or financial outcomes.",
+    "1 related rule(s) could not be evaluated due to missing evidence."
+  ],
+  "requires_approval": true,
+  "status_comment": "Alternate supplier already booked.",
+  "updated_by": "inventory_director",
+  "created_at": "2026-10-10T13:48:14.657675+00:00",
+  "updated_at": "2026-10-10T13:48:14.687010+00:00"
+}

@@ -11,14 +11,14 @@ import pandas as pd
 # Priority keyword mapping for column names -> business roles
 _ROLE_PATTERNS = [
     # Identifiers
-    (r"\b(order_id|order_number|order_no|order_code|order_key|orderid)\b", "order_identifier"),
+    (r"\b(order_id|order_number|order_no|order_code|order_key|orderid|invoice_number|invoice_no)\b", "order_identifier"),
     (r"\b(customer_id|user_id|client_id|account_id|buyer_id|customerid|userid)\b", "customer_identifier"),
     (r"\b(product_id|item_id|sku|asin|barcode|productid|itemid)\b", "product_identifier"),
     (r"\b(transaction_id|txn_id|invoice_id|payment_id)\b", "transaction_identifier"),
     (r"\b(id|uuid|guid|code|key)\b", "identifier"),
 
     # Monetary / Revenue / Cost / Profit
-    (r"\b(total_amount|gross_revenue|net_revenue|revenue|sales|total_sales|turnover|gmv)\b", "revenue"),
+    (r"\b(total_amount|gross_revenue|net_revenue|revenue|sales|total_sales|turnover|gmv|sales_amount|net_sales|daily_revenue|gross_sales)\b", "revenue"),
     (r"\b(cost|cogs|expense|expenses|spending|spend|purchase_cost)\b", "cost"),
     (r"\b(profit|net_profit|gross_profit|margin|net_income|earnings)\b", "profit"),
     (r"\b(amount|total|charge|fee|balance|tax|vat)\b", "monetary_amount"),
@@ -37,7 +37,7 @@ _ROLE_PATTERNS = [
     (r"\b(percentage|percent|pct|rate|ratio|conversion_rate)\b", "rate"),
 
     # Dates & Timestamps
-    (r"\b(order_date|transaction_date|purchase_date|booking_date)\b", "transaction_date"),
+    (r"\b(order_date|transaction_date|purchase_date|booking_date|purchased_on|sale_date|invoice_date|event_date)\b", "transaction_date"),
     (r"\b(delivery_date|ship_date|shipping_date|dispatch_date)\b", "delivery_date"),
     (r"\b(created_at|created_date|signup_date|registration_date)\b", "creation_date"),
     (r"\b(updated_at|modified_at)\b", "modification_date"),

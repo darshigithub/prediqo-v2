@@ -93,6 +93,17 @@ class BaseLLMProvider(ABC):
     ) -> list[str]:
         pass
 
+    @abstractmethod
+    def generate_business_explanation(
+        self,
+        explanation_type: str,
+        evidence: dict[str, Any],
+        max_tokens: int = 650,
+        corrective_feedback: Optional[str] = None,
+    ) -> dict[str, Any]:
+        pass
+
+
 
 class OpenAICompatibleProvider(BaseLLMProvider):
     """Generic provider using OpenAI Python SDK with customizable base_url and api_key.
@@ -118,7 +129,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
 
     def _get_key(self) -> str:
         key = self.api_key or os.environ.get(self.env_key_name, "").strip()
-        if not key and self.provider_id != "custom":
+        if not key and self.provider_id not in ("custom", "ollama"):
             raise LLMConfigError(f"{self.display_name} API key is not configured ({self.env_key_name}).")
         return key or "dummy_key"
 
@@ -131,8 +142,10 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         ).strip()
 
     def is_configured(self) -> bool:
+        if self.provider_id == "ollama":
+            return True  # Local Ollama uses default localhost:11434/v1 unless overridden
         if self.provider_id == "custom":
-            return bool(os.environ.get("LLM_BASE_URL", "").strip())
+            return bool(os.environ.get("LLM_BASE_URL", "").strip() or self.base_url)
         return bool(self.api_key or os.environ.get(self.env_key_name, "").strip())
 
     def _get_timeout(self, default: float = 30.0) -> float:
@@ -143,7 +156,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             except ValueError:
                 pass
         # Local / custom models need more time (e.g. Ollama model loading)
-        if self.provider_id == "custom":
+        if self.provider_id in ("custom", "ollama"):
             return max(default, 60.0)
         return default
 
@@ -273,6 +286,72 @@ Return ONLY a JSON object: {{"suggestions": ["question 1", "question 2"]}}
                 logger.warning("%s suggestions generation failed: %s", self.display_name, e)
             return []
 
+    def generate_business_explanation(
+        self,
+        explanation_type: str,
+        evidence: dict[str, Any],
+        max_tokens: int = 650,
+        corrective_feedback: Optional[str] = None,
+    ) -> dict[str, Any]:
+        from .explanation_prompts import (
+            EXPLANATION_SYSTEM_PROMPT,
+            build_prediction_prompt,
+            build_forecast_prompt,
+        )
+
+        user_prompt = (
+            build_prediction_prompt(evidence, corrective_feedback=corrective_feedback)
+            if explanation_type == "prediction"
+            else build_forecast_prompt(evidence, corrective_feedback=corrective_feedback)
+        )
+
+
+        timeout_val = self._get_timeout(default=60.0 if self.provider_id in ("custom", "ollama") else 35.0)
+        client = self._get_client(timeout=timeout_val)
+
+        kwargs: dict[str, Any] = {
+            "model": self._get_model(),
+            "messages": [
+                {"role": "system", "content": EXPLANATION_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.1,
+            "max_tokens": max_tokens,
+        }
+
+        try:
+            try:
+                kwargs["response_format"] = {"type": "json_object"}
+                resp = client.chat.completions.create(**kwargs)
+            except Exception:
+                kwargs.pop("response_format", None)
+                resp = client.chat.completions.create(**kwargs)
+
+            raw = resp.choices[0].message.content or "{}"
+            return _extract_json(raw)
+        except LLMConfigError:
+            raise
+        except Exception as e:
+            err_msg = str(e).lower()
+            logger.error("%s explanation generation failed: %s", self.display_name, e)
+            if "connection refused" in err_msg or "cannot connect" in err_msg or "failed to connect" in err_msg or "target machine actively refused" in err_msg:
+                raise LLMServiceError(
+                    f"{self.display_name} server is unreachable at {self.base_url or 'default endpoint'}. "
+                    "Ensure Ollama/local server is running (`ollama serve`)."
+                )
+            if "not found" in err_msg and "model" in err_msg:
+                raise LLMConfigError(
+                    f"Model '{self._get_model()}' not found in {self.display_name}. "
+                    f"Ensure model is pulled (`ollama pull {self._get_model()}`)."
+                )
+            if "timeout" in err_msg or "timed out" in err_msg:
+                raise LLMServiceError(f"{self.display_name} request timed out after {timeout_val}s.")
+            if "api key" in err_msg or "unauthorized" in err_msg or "401" in err_msg:
+                raise LLMConfigError(f"{self.display_name} API key is invalid or unauthorized.")
+            if "rate limit" in err_msg or "429" in err_msg:
+                raise LLMServiceError(f"{self.display_name} rate limit reached. Please retry in a few moments.")
+            raise LLMServiceError(f"{self.display_name} error: {e}")
+
 
 class AnthropicProvider(BaseLLMProvider):
     """Native Anthropic Claude provider using direct HTTP Messages API."""
@@ -400,6 +479,36 @@ Generate 5 analytical questions for this data. Return JSON ONLY: {{"suggestions"
             logger.warning("Anthropic suggestions generation failed: %s", e)
             return []
 
+    def generate_business_explanation(
+        self,
+        explanation_type: str,
+        evidence: dict[str, Any],
+        max_tokens: int = 650,
+        corrective_feedback: Optional[str] = None,
+    ) -> dict[str, Any]:
+        from .explanation_prompts import (
+            EXPLANATION_SYSTEM_PROMPT,
+            build_prediction_prompt,
+            build_forecast_prompt,
+        )
+
+        user_prompt = (
+            build_prediction_prompt(evidence, corrective_feedback=corrective_feedback)
+            if explanation_type == "prediction"
+            else build_forecast_prompt(evidence, corrective_feedback=corrective_feedback)
+        )
+
+        system_instruction = (
+            EXPLANATION_SYSTEM_PROMPT
+            + "\nIMPORTANT: Return ONLY raw JSON without markdown code block fences (no ```json)."
+        )
+        raw = self._call_messages(
+            system=system_instruction,
+            user_content=user_prompt,
+            max_tokens=max_tokens,
+        )
+        return _extract_json(raw)
+
 
 # Provider Registry
 def get_llm_provider(
@@ -450,7 +559,21 @@ def get_llm_provider(
     if name in ("anthropic", "claude"):
         return AnthropicProvider(api_key=api_key, model=model)
 
-    if name in ("custom", "ollama", "deepseek", "vllm", "local"):
+    if name in ("ollama", "local_ollama"):
+        ollama_base = os.environ.get("OLLAMA_BASE_URL") or os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
+        if not ollama_base.endswith("/v1") and not ollama_base.endswith("/v1/"):
+            ollama_base = ollama_base.rstrip("/") + "/v1"
+        return OpenAICompatibleProvider(
+            provider_id="ollama",
+            display_name="Ollama (Local)",
+            default_model="llama3.2",
+            env_key_name="OLLAMA_API_KEY",
+            base_url=ollama_base,
+            api_key=api_key or "ollama",
+            model=model or os.environ.get("OLLAMA_MODEL", "llama3.2"),
+        )
+
+    if name in ("custom", "deepseek", "vllm", "local"):
         custom_base = os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
         return OpenAICompatibleProvider(
             provider_id="custom",
@@ -485,6 +608,13 @@ def list_available_providers() -> list[dict[str, Any]]:
             "models": ["gpt-4o-mini", "gpt-4o", "o3-mini"],
         },
         {
+            "id": "ollama",
+            "name": "Ollama (Local)",
+            "env_key": "OLLAMA_BASE_URL",
+            "default_model": "llama3.2",
+            "models": ["llama3.2", "mistral", "qwen2.5", "phi3", "llama3.1:8b"],
+        },
+        {
             "id": "groq",
             "name": "Groq",
             "env_key": "GROQ_API_KEY",
@@ -507,7 +637,7 @@ def list_available_providers() -> list[dict[str, Any]]:
         },
         {
             "id": "custom",
-            "name": "Custom / OpenAI-Compatible (Ollama, DeepSeek)",
+            "name": "Custom / OpenAI-Compatible (DeepSeek, vLLM)",
             "env_key": "LLM_BASE_URL",
             "default_model": "default",
             "models": ["deepseek-chat", "llama3.2", "mistral"],
@@ -516,13 +646,18 @@ def list_available_providers() -> list[dict[str, Any]]:
 
     out = []
     for p in providers_def:
-        env_val = os.environ.get(p["env_key"], "").strip()
-        if p["id"] == "gemini" and not env_val:
-            env_val = os.environ.get("GOOGLE_API_KEY", "").strip()
+        if p["id"] == "ollama":
+            # Local Ollama is ready out-of-the-box on localhost:11434/v1
+            configured = True
+        else:
+            env_val = os.environ.get(p["env_key"], "").strip()
+            if p["id"] == "gemini" and not env_val:
+                env_val = os.environ.get("GOOGLE_API_KEY", "").strip()
+            configured = bool(env_val)
         out.append({
             "id": p["id"],
             "name": p["name"],
-            "configured": bool(env_val),
+            "configured": configured,
             "default_model": p["default_model"],
             "models": p["models"],
         })

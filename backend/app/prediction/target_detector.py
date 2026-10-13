@@ -65,6 +65,9 @@ def detect_target_candidates(
                 sample_vals = None
                 if c.get("min") is not None and c.get("max") is not None:
                     sample_vals = [c.get("min"), c.get("avg"), c.get("max")]
+                from .predictor import infer_unit_from_target
+                unit_val = infer_unit_from_target(name, "regression")
+                null_pct = round((null_cnt / max(1, row_count)) * 100.0, 1)
                 regression_targets.append(
                     TargetCandidate(
                         name=name,
@@ -74,6 +77,9 @@ def detect_target_candidates(
                         display_name=disp_name,
                         problem_type="regression",
                         sample_values=sample_vals,
+                        null_count=null_cnt,
+                        null_percentage=null_pct,
+                        unit=unit_val,
                     )
                 )
 
@@ -82,6 +88,7 @@ def detect_target_candidates(
         if sem_type in ("CATEGORY", "DIMENSION") or (is_numeric and 2 <= unique_cnt <= 10):
             if 2 <= unique_cnt <= 30:
                 class_names = [str(tv.get("value")) for tv in top_vals] if top_vals else None
+                null_pct = round((null_cnt / max(1, row_count)) * 100.0, 1)
                 classification_targets.append(
                     TargetCandidate(
                         name=name,
@@ -91,6 +98,8 @@ def detect_target_candidates(
                         display_name=disp_name,
                         problem_type="classification",
                         classes=class_names,
+                        null_count=null_cnt,
+                        null_percentage=null_pct,
                     )
                 )
 

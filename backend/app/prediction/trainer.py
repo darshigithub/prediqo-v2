@@ -6,11 +6,22 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from sklearn.base import clone
+from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
+
+
+def get_baseline_estimator(problem_type: str) -> Any:
+    """Returns a simple naive baseline estimator (mean for regression, most-frequent for classification)."""
+    p_type = problem_type.lower()
+    if p_type == "regression":
+        return DummyRegressor(strategy="mean")
+    elif p_type == "classification":
+        return DummyClassifier(strategy="most_frequent")
+    raise ValueError(f"Unknown problem type: {problem_type}")
 
 
 def get_candidate_estimators(problem_type: str, random_state: int = 42) -> dict[str, Any]:
@@ -29,7 +40,7 @@ def get_candidate_estimators(problem_type: str, random_state: int = 42) -> dict[
     elif p_type == "classification":
         return {
             "LogisticRegression": LogisticRegression(
-                max_iter=500, random_state=random_state
+                max_iter=1000, random_state=random_state
             ),
             "RandomForestClassifier": RandomForestClassifier(
                 n_estimators=50, random_state=random_state, n_jobs=-1
@@ -41,6 +52,9 @@ def get_candidate_estimators(problem_type: str, random_state: int = 42) -> dict[
     else:
         raise ValueError(f"Unknown problem type: {problem_type}")
 
+
+
+import time
 
 def train_candidate_models(
     preprocessor: Pipeline,
@@ -55,12 +69,14 @@ def train_candidate_models(
 
     for name, estimator in candidates.items():
         try:
+            t0 = time.perf_counter()
             # Build end-to-end pipeline
             pipe = Pipeline([
                 ("preprocessor", clone(preprocessor)),
                 ("estimator", estimator),
             ])
             pipe.fit(X_train, y_train)
+            pipe._training_time_ms = round((time.perf_counter() - t0) * 1000.0, 2)
             trained_pipelines[name] = pipe
         except Exception as e:
             logger.warning("Failed to train candidate model %s: %s", name, e)
@@ -69,3 +85,4 @@ def train_candidate_models(
         raise RuntimeError("Failed to train any candidate machine learning models.")
 
     return trained_pipelines
+

@@ -8,6 +8,8 @@ import DataExplorerPage from './pages/DataExplorerPage'
 import AnalystPage from './pages/AnalystPage'
 import ChartBuilderPage from './pages/ChartBuilderPage'
 import PredictionPage from './pages/PredictionPage'
+import ForecastingPage from './pages/ForecastingPage'
+import DecisionCenterPage from './pages/DecisionCenterPage'
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
           <Route path="/analyst" element={<AnalystPage />} />
           <Route path="/charts" element={<ChartBuilderPage />} />
           <Route path="/prediction" element={<PredictionPage />} />
+          <Route path="/forecasting" element={<ForecastingPage />} />
+          <Route path="/decisions" element={<DecisionCenterPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

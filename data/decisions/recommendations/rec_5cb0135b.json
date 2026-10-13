@@ -1,0 +1,37 @@
+{
+  "recommendation_id": "rec_5cb0135b",
+  "evaluation_id": "eval_065eee37",
+  "scenario": "data_quality",
+  "title": "Data Quality Completeness Warning Action Required",
+  "recommended_action": "Audit source data pipelines and inspect missing values before relying on predictive outputs.",
+  "description": "Rule triggered: data_completeness_pct (72.5) < 85.0 %. Dataset completeness is 72.5, which is below the safe threshold of 85.0 %.",
+  "priority": "high",
+  "status": "needs_review",
+  "triggered_rule_ids": [
+    "rule_dq_completeness"
+  ],
+  "supporting_evidence": [
+    {
+      "field_name": "data_completeness_pct",
+      "source_type": "operational_fact",
+      "value": 72.5,
+      "unit": null,
+      "source_id": "user_input",
+      "source_label": "User Provided Operational Fact",
+      "timestamp": "2026-10-12T17:28:40.892546+00:00"
+    }
+  ],
+  "missing_evidence": [
+    "Rule 'Operational Error Tolerance Exceeded' not evaluable: Missing evidence: field 'model_mae' is not present in provided scenario data."
+  ],
+  "uncertainty_notes": [
+    "Guidance notice: This recommendation is generated from deterministic business rules and statistical associations.",
+    "It does not guarantee improved operational or financial outcomes.",
+    "1 related rule(s) could not be evaluated due to missing evidence."
+  ],
+  "requires_approval": false,
+  "status_comment": null,
+  "updated_by": "local_user",
+  "created_at": "2026-10-12T17:28:40.892487+00:00",
+  "updated_at": "2026-10-12T17:28:40.892487+00:00"
+}

@@ -22,8 +22,10 @@ No Docker, no external database, no Celery/Redis, no authentication — everythi
 
 - **[CONTEXT.md](CONTEXT.md)** — Living context document covering mental model, component responsibilities, API reference, and known quirks.
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Architectural blueprint covering modular monolith design, background ingestion jobs, DuckDB direct Parquet execution, query caching, and benchmarks.
+- **[docs/ANALYTICS.md](docs/ANALYTICS.md)** — Analytical engine architecture covering DuckDB direct Parquet execution, query caching, semantic guardrails, and dashboards.
+- **[docs/PREDICTION.md](docs/PREDICTION.md)** — Complete machine learning prediction guide covering target detection, candidate algorithms, cross-validation, persistence, and live inference.
+- **[docs/FORECASTING.md](docs/FORECASTING.md)** — Time-series forecasting intelligence guide covering DuckDB temporal aggregation, candidate forecasters, chronological backtesting, and uncertainty intervals.
 - **[docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)** — Development guide for adding connectors, charts, multi-provider LLMs, and running benchmarks.
-- **[docs/PREDICTION.md](docs/PREDICTION.md)** — Complete machine learning prediction guide covering target detection, candidate algorithms, evaluation, persistence, and live inference.
 
 ---
 
@@ -189,9 +191,20 @@ DELETE /api/datasets/{id}
 
 # Prediction Layer (Supervised ML)
 GET    /api/prediction/feasibility/{id}        # Check ML feasibility, regression/classification targets
-POST   /api/prediction/train                   # Train candidate models (Linear, RF, GB) & select best
+POST   /api/prediction/train                   # Train candidate models (Linear, RF, GB) with K-Fold CV & select best
 GET    /api/prediction/models/{id}             # List models for dataset or retrieve model details
 POST   /api/prediction/predict                 # Single-record inference with probabilities & explanation
+
+# Forecasting Layer (Time-Series Intelligence)
+GET    /api/forecast/feasibility/{id}          # Check forecasting feasibility, candidate dates & measures, staleness
+POST   /api/forecast/train                     # Aggregate DuckDB Parquet, backtest candidates vs Naive, project intervals
+GET    /api/forecast/models/{id}               # List trained forecast models for dataset
+GET    /api/forecast/models/{id}/details       # Retrieve saved forecast model metadata and projection
+POST   /api/forecast/predict                   # Project future periods for saved model with custom horizon
+
+# Capability Assessment Layer
+GET    /api/capabilities/{id}                  # Granularity assessment, semantic concept mappings, eligibility matrix
+POST   /api/capabilities/{id}                  # Apply manual field mapping overrides
 
 # Analytics & AI
 POST   /api/query                              # Structured query or NL question
@@ -213,9 +226,14 @@ POST   /api/dashboards/{id}/charts/{chart_id}/move
 
 ## Testing & Verification
 
-### Run Automated Backend Tests (66 tests)
+### Run Automated Backend Tests (82 tests across core, ML prediction, forecasting, flexibility)
 ```powershell
 .\backend\.venv\Scripts\python.exe -m pytest backend/tests -v
+```
+
+### Build & Validate Frontend (TypeScript + Vite)
+```powershell
+npm --prefix frontend run build
 ```
 
 ### Run 10-Step Acceptance Workflow

@@ -58,10 +58,10 @@ export default function DatasetsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold">Datasets</h1>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Datasets</h1>
         <Link to="/sources" className="btn-primary">+ Connect Data</Link>
       </div>
-      <p className="text-sm text-slate-500 mb-6">
+      <p className="text-sm text-slate-600 mb-6">
         Analytical datasets stored as Parquet and indexed with semantic metadata.
       </p>
 
@@ -70,22 +70,22 @@ export default function DatasetsPage() {
       )}
 
       {datasets.length === 0 ? (
-        <div className="card p-10 text-center text-slate-400">
+        <div className="card p-10 text-center text-slate-500">
           No datasets yet. <Link to="/sources" className="text-brand-600 hover:underline">Connect a data source</Link> to get started.
         </div>
       ) : (
         <div className="card overflow-hidden">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 text-left text-slate-500">
-                <th className="px-5 py-3 font-medium">Dataset Name</th>
-                <th className="px-5 py-3 font-medium">Status</th>
-                <th className="px-5 py-3 font-medium">Version</th>
-                <th className="px-5 py-3 font-medium">Source</th>
-                <th className="px-5 py-3 font-medium">Rows</th>
-                <th className="px-5 py-3 font-medium">Columns</th>
-                <th className="px-5 py-3 font-medium">Created</th>
-                <th className="px-5 py-3 text-right">Actions</th>
+              <tr className="bg-slate-50 text-left text-slate-700 border-b border-slate-200">
+                <th className="px-5 py-3 font-semibold">Dataset Name</th>
+                <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold">Version</th>
+                <th className="px-5 py-3 font-semibold">Source</th>
+                <th className="px-5 py-3 font-semibold">Rows</th>
+                <th className="px-5 py-3 font-semibold">Columns</th>
+                <th className="px-5 py-3 font-semibold">Created</th>
+                <th className="px-5 py-3 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody>

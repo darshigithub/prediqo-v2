@@ -157,8 +157,8 @@ export default function DataSourcesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1">Data Sources</h1>
-      <p className="text-sm text-slate-500 mb-6">
+      <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Data Sources</h1>
+      <p className="text-sm text-slate-600 mb-6">
         Connect a data source once. The ingestion pipeline prepares, profiles, and persists it for repeated fast analysis.
       </p>
 
@@ -285,10 +285,10 @@ export default function DataSourcesPage() {
       )}
 
       {modal === 'google_sheets' && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-semibold mb-1">Connect Google Sheet</h2>
-            <p className="text-xs text-slate-500 mb-4">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+          <div className="card p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Connect Google Sheet</h2>
+            <p className="text-xs text-slate-600 mb-4">
               Paste the Sheet URL or ID. The sheet must be shared as “Anyone with the link”.
             </p>
             <input className="input mb-3" placeholder="https://docs.google.com/spreadsheets/d/…"
@@ -307,9 +307,9 @@ export default function DataSourcesPage() {
       )}
 
       {modal === 'postgresql' && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setModal(null)}>
-          <div className="card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-semibold mb-4">Connect PostgreSQL</h2>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
+          <div className="card p-6 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-slate-900 mb-4">Connect PostgreSQL</h2>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <input className="input" placeholder="Host" value={pg.host}
                 onChange={(e) => setPg({ ...pg, host: e.target.value })} />

@@ -13,7 +13,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +110,7 @@ def build_full_preprocessing_pipeline(
     if expanded_numeric:
         num_pipe = Pipeline([
             ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
         ])
         transformers.append(("num", num_pipe, expanded_numeric))
 
@@ -129,7 +130,7 @@ def build_full_preprocessing_pipeline(
 
     desc = (
         f"Dates expanded: {len(date_cols)}; "
-        f"Numeric features ({len(expanded_numeric)}) median-imputed; "
+        f"Numeric features ({len(expanded_numeric)}) median-imputed and standard-scaled; "
         f"Categorical features ({len(categorical_cols)}) most-frequent imputed and one-hot encoded."
     )
 
@@ -142,14 +143,27 @@ def split_data(
     problem_type: str,
     test_size: float = 0.2,
     random_state: int = 42,
+    validation_strategy: Optional[str] = None,
+    groups: Optional[pd.Series] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """Splits data into train and test sets, using stratification for classification when feasible."""
+    """Splits data into train and test sets, respecting group-awareness, temporal order, or stratification."""
+    if groups is not None and len(groups.unique()) >= 3:
+        from sklearn.model_selection import GroupShuffleSplit
+        gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+        train_idx, test_idx = next(gss.split(X, y, groups))
+        return X.iloc[train_idx], X.iloc[test_idx], y.iloc[train_idx], y.iloc[test_idx]
+
+    if validation_strategy == "time_aware":
+        split_idx = max(1, int(len(X) * (1 - test_size)))
+        return X.iloc[:split_idx], X.iloc[split_idx:], y.iloc[:split_idx], y.iloc[split_idx:]
+
     stratify = None
     if problem_type.lower() == "classification":
         val_counts = y.value_counts()
-        if (val_counts >= 2).all() and len(y) >= 20:
+        if (val_counts >= 2).all() and len(y) >= 10:
             stratify = y
 
     return train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=stratify
     )
+

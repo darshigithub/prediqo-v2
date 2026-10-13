@@ -85,37 +85,37 @@ export default function ChartBuilderPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1">Chart Builder</h1>
-      <p className="text-sm text-slate-500 mb-4">Build a chart manually from any dataset.</p>
+      <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Chart Builder</h1>
+      <p className="text-sm text-slate-600 mb-4">Build a chart manually from any dataset.</p>
 
       <div className="mb-4">
         <DatasetPicker value={datasetId} onChange={setDatasetId} />
       </div>
 
       <div className="card p-4 mb-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 items-end">
-        <label className="text-xs text-slate-500">Chart Type
+        <label className="text-xs font-semibold text-slate-700">Chart Type
           <select className="input mt-1" value={chartType} onChange={(e) => setChartType(e.target.value)}>
             {CHART_TYPES.map((t) => <option key={t} value={t}>{t.toUpperCase()}</option>)}
           </select>
         </label>
-        <label className="text-xs text-slate-500">Dimension
+        <label className="text-xs font-semibold text-slate-700">Dimension
           <select className="input mt-1" value={dimension} onChange={(e) => setDimension(e.target.value)}>
             <option value="">— none —</option>
             {dimensions.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
           </select>
         </label>
-        <label className="text-xs text-slate-500">Metric
+        <label className="text-xs font-semibold text-slate-700">Metric
           <select className="input mt-1" value={metric} onChange={(e) => setMetric(e.target.value)}>
             <option value="">— count rows —</option>
             {measures.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
           </select>
         </label>
-        <label className="text-xs text-slate-500">Aggregation
+        <label className="text-xs font-semibold text-slate-700">Aggregation
           <select className="input mt-1" value={aggregation} onChange={(e) => setAggregation(e.target.value)}>
             {AGGS.map((a) => <option key={a} value={a}>{a.toUpperCase()}</option>)}
           </select>
         </label>
-        <label className="text-xs text-slate-500">Filter
+        <label className="text-xs font-semibold text-slate-700">Filter
           <div className="flex gap-1 mt-1">
             <select className="input" value={filterCol} onChange={(e) => setFilterCol(e.target.value)}>
               <option value="">— none —</option>
@@ -126,7 +126,7 @@ export default function ChartBuilderPage() {
             </select>
           </div>
         </label>
-        <label className="text-xs text-slate-500">Value / Sort / Top N
+        <label className="text-xs font-semibold text-slate-700">Value / Sort / Top N
           <div className="flex gap-1 mt-1">
             <input className="input" placeholder="value" value={filterVal}
               disabled={!filterCol} onChange={(e) => setFilterVal(e.target.value)} />
@@ -137,7 +137,7 @@ export default function ChartBuilderPage() {
             <input className="input w-16" placeholder="N" value={topN} onChange={(e) => setTopN(e.target.value)} />
           </div>
         </label>
-        <button className="btn-primary justify-center" disabled={!datasetId || busy} onClick={render}>
+        <button className="btn-primary justify-center cursor-pointer" disabled={!datasetId || busy} onClick={render}>
           {busy ? 'Rendering…' : 'Render Chart'}
         </button>
       </div>
@@ -156,22 +156,22 @@ export default function ChartBuilderPage() {
               insight={result.insight}
             />
           </div>
-          <div className="card p-5 flex flex-col">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Query result</h3>
+          <div className="card p-5 flex flex-col bg-white">
+            <h3 className="text-sm font-bold text-slate-800 mb-3">Query Result</h3>
             <div className="overflow-auto max-h-72 flex-1">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 text-left text-slate-500">
+                  <tr className="bg-slate-50 text-left text-slate-700 font-semibold border-b border-slate-200">
                     {result.result.data[0] && Object.keys(result.result.data[0]).map((k) => (
-                      <th key={k} className="px-3 py-2 font-medium">{k.replace(/_/g, ' ')}</th>
+                      <th key={k} className="px-3 py-2 font-semibold text-slate-700 whitespace-nowrap">{k.replace(/_/g, ' ')}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.result.data.map((row, i) => (
-                    <tr key={i} className="border-t border-slate-100">
+                    <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
                       {Object.values(row).map((v, j) => (
-                        <td key={j} className="px-3 py-2 whitespace-nowrap">
+                        <td key={j} className="px-3 py-2 whitespace-nowrap font-mono text-xs text-slate-800">
                           {typeof v === 'number' ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : String(v ?? '')}
                         </td>
                       ))}
@@ -180,7 +180,7 @@ export default function ChartBuilderPage() {
                 </tbody>
               </table>
             </div>
-            <button className="btn-secondary mt-3" disabled={added} onClick={handleAddToDashboard}>
+            <button className="btn-secondary mt-3 cursor-pointer" disabled={added} onClick={handleAddToDashboard}>
               {added ? '✓ Added to Dashboard' : '+ Add to Dashboard'}
             </button>
           </div>

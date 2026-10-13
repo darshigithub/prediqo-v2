@@ -2,27 +2,28 @@
 
 ## 1. Architecture Overview
 
-Prediqo's Supervised Prediction Layer equips the platform with predictive analytics alongside descriptive and diagnostic analytics. It implements the principle of strict separation between **ML computation** and **AI/LLM reasoning**:
+Prediqo's **Supervised Prediction Layer** (`backend/app/prediction/`) equips the platform with record-level predictive analytics alongside descriptive analytics ([docs/ANALYTICS.md](docs/ANALYTICS.md)) and time-series forecasting ([docs/FORECASTING.md](docs/FORECASTING.md)).
+
+It implements the principle of strict separation between **ML computation** and **AI/LLM reasoning**:
 
 ```text
-                    PREDIQO PLATFORM
-                           |
-        +------------------+------------------+
-        |                                     |
-        v                                     v
-    ANALYTICS (DuckDB)               PREDICTION (ML Engine)
-   "What happened?"                  "What will happen?"
-   Aggregation & SQL                 Supervised Regression / Classification
-        |                                     |
-        +------------------+------------------+
-                           |
-                           v
-                    AI EXPLANATION
+                                PREDIQO PLATFORM
+                                       |
+        +------------------------------+------------------------------+
+        |                                                             |
+        v                                                             v
+SUPERVISED PREDICTION (Record-Level ML)              TIME-SERIES FORECASTING (Chronological)
+"What will the value be for this record?"            "What will aggregate values be over time?"
+- Objective: Estimate target from row features       - Objective: Project temporal series into future
+- Validation: K-Fold CV / Chronological Split        - Validation: Chronological backtesting (N - H vs H)
+- Input: Arbitrary feature vector                    - Input: Date column, metric, frequency, horizon
+- Models: Linear, Random Forest, GBDT                - Models: Naive, Seasonal Naive, Moving Avg, Exp Smoothing
+- Inference: POST /api/prediction/predict            - Inference: POST /api/forecast/predict
 ```
 
 ### Core Design Rules
-1. **Local-First & Lightweight**: Built with `scikit-learn` and `joblib`. No heavy external dependencies (no TensorFlow, PyTorch, MLflow, Docker, or external queue brokers).
-2. **Deterministic ML**: All numeric metrics, model evaluations, predictions, and feature importances come directly from the underlying mathematical models, never invented by LLMs.
+1. **Local-First & Lightweight**: Built with `scikit-learn` and `joblib`. No external queue brokers, heavy Docker clusters, or cloud ML dependencies.
+2. **Deterministic ML**: All numeric metrics, model evaluations, predictions, and feature importances come directly from underlying mathematical estimators, never invented by LLMs.
 3. **Data Source Integration**: Directly queries column-pruned Parquet datasets (`data/datasets/{id}.parquet`) via DuckDB without reloading raw CSV/Excel files or materializing entire DataFrames into memory.
 4. **Dataset Version Awareness**: Models are strictly associated with `(dataset_id, dataset_version)`. Any dataset refresh prevents silent usage of stale models.
 
@@ -32,23 +33,23 @@ Prediqo's Supervised Prediction Layer equips the platform with predictive analyt
 
 ```mermaid
 flowchart TD
-    Dataset[("Parquet Analytical Storage")] --> Feasibility["1. Feasibility Analysis (Status, Row Count, Variance)"]
+    Dataset[("Parquet Analytical Storage")] --> Feasibility["1. Feasibility Analysis (Row Count, Variance)"]
     Feasibility --> TargetDetection["2. Target Detection (Regression vs Classification)"]
     TargetDetection --> FeatureSelection["3. Feature Selection (ID Exclusion, Leakage Check)"]
     FeatureSelection --> DuckDBExtract["4. DuckDB Column Extraction (Target + Features Only)"]
     DuckDBExtract --> Preprocessing["5. Preprocessing Pipeline (Dates, Imputer, OneHot)"]
     Preprocessing --> TrainSplit["6. Train/Test Split (80/20, Stratified if Classification)"]
     TrainSplit --> TrainCandidates["7. Train Candidate Models (Linear, RF, Gradient Boosting)"]
-    TrainCandidates --> Evaluation["8. Model Evaluation & Best Model Selection (MAE / F1)"]
-    Evaluation --> Importance["9. Feature Importance Extraction"]
-    Importance --> Persistence["10. Model Persistence (data/models/{id}/)"]
-    Persistence --> Prediction["11. Live Single-Record Prediction & Probabilities"]
-    Prediction --> Explanation["12. Human-Readable Explanation"]
+    TrainCandidates --> Evaluation["8. Cross-Validation & Model Selection (CV MAE / F1)"]
+    Evaluation --> Residuals["9. Actual vs Predicted Residual Diagnostics"]
+    Residuals --> Importance["10. Feature Importance Extraction"]
+    Importance --> Persistence["11. Model Persistence (data/models/{id}/)"]
+    Persistence --> Prediction["12. Live Single-Record Prediction & Probabilities"]
 ```
 
 ---
 
-## 3. Target Detection & Selection
+## 3. Target Detection & Selection (`target_detector.py`)
 
 Target detection leverages the existing Semantic Intelligence layer:
 
@@ -66,23 +67,26 @@ Target detection leverages the existing Semantic Intelligence layer:
 
 ---
 
-## 4. Feature Selection & Data Leakage Prevention
+## 4. Feature Selection & Data Leakage Prevention (`feature_selector.py`)
 
 - **Recommended Features**:
-  - Numeric columns, categorical categories with $< 100$ unique values, and date columns.
+  - Numeric continuous columns, categorical categories with $< 100$ unique values, and date columns.
 - **Excluded Features**:
   - Target column itself.
   - All identifier columns (`is_identifier_column`).
   - Completely null or single-value columns.
   - High-cardinality text columns ($> 100$ unique values or $> 80\%$ unique-to-row ratio).
-- **Data Leakage Heuristics**:
+- **Post-Outcome Leakage Heuristics**:
   - Evaluates predictor names against target names to detect post-outcome information.
   - E.g., if target is `Delivery_Days`, the system warns if `Actual_Delivery_Date`, `Delivered_At`, or `Delivery_Status` are selected as predictors.
   - E.g., if target is `Order_Status`, warns if `Cancellation_Reason` or `Refund_Amount` are selected.
+- **Correlation Leakage Detection (`check_correlation_leakage`)**:
+  - Computes pairwise Pearson correlation between candidate numeric features and the target.
+  - Flags any feature with $|\rho| \ge 0.98$ as a critical data leakage warning for user review.
 
 ---
 
-## 5. Pipeline Preprocessing
+## 5. Pipeline Preprocessing (`data_preparation.py`)
 
 Preprocessing and model estimators are bundled into a single atomic scikit-learn `Pipeline`:
 
@@ -96,7 +100,7 @@ Preprocessing and model estimators are bundled into a single atomic scikit-learn
 
 ---
 
-## 6. Model Training & Candidate Algorithms
+## 6. Model Training & Candidate Algorithms (`trainer.py`)
 
 For every training job, three diverse algorithms are trained:
 
@@ -106,27 +110,46 @@ For every training job, three diverse algorithms are trained:
 3. `GradientBoostingRegressor` (Boosted decision trees, $N=50$)
 
 ### Classification Candidates
-1. `LogisticRegression` (Linear classifier, `max_iter=500`)
+1. `LogisticRegression` (Linear classifier, `max_iter=1000`)
 2. `RandomForestClassifier` (Bagged ensemble, $N=50$)
 3. `GradientBoostingClassifier` (Boosted trees, $N=50$)
 
+Execution runtime is tracked per pipeline in milliseconds (`training_time_ms`).
+
 ---
 
-## 7. Model Evaluation & Selection
+## 7. Model Evaluation, Cross-Validation & Selection (`evaluator.py`)
 
-Models are evaluated against the held-out test set ($20\%$):
+Models are evaluated using both K-Fold Cross-Validation (or chronological `TimeSeriesSplit`) and holdout evaluation:
 
+### Validation Strategies
+- **K-Fold Cross-Validation** ($K=5$ default, configurable $2 \le K \le 10$):
+  - Preprocessing is fitted strictly within each training fold using cloned pipeline estimators to guarantee zero cross-fold leakage.
+  - Computes mean and standard deviation across all folds: `cv_mae_mean`, `cv_mae_std`, `cv_rmse_mean`, `cv_r2_mean`.
+- **Chronological Split (`TimeSeriesSplit`)**:
+  - Used when observations have temporal dependencies to prevent lookahead leakage.
+- **Holdout Test Set (20%)**:
+  - Evaluates generalization on unseen holdout records.
+
+### Model Selection Policy
 - **Regression**:
-  - Metrics: **MAE** (Mean Absolute Error), **RMSE** (Root Mean Squared Error), **$R^2$** (Coefficient of Determination).
-  - Primary Metric: **Lowest MAE**.
+  - Primary Metric: **Lowest Cross-Validation MAE** (`cv_metrics.mae`).
+  - Supporting Metrics: Holdout MAE, RMSE, and $R^2$.
 - **Classification**:
-  - Metrics: **Accuracy**, **Precision** (weighted), **Recall** (weighted), **F1 Score** (weighted).
-  - Primary Metric: **Highest F1 Score**.
+  - Primary Metric: **Highest Weighted F1 Score**.
+  - Supporting Metrics: Accuracy, Precision, Recall.
 - The candidate with the optimal primary metric is automatically marked `is_best: true` and saved as the active model.
 
+### Actual vs. Predicted Residual Diagnostics
+For regression models, residual points are calculated on the held-out test split:
+```python
+residual = actual - predicted
+```
+Points `[{ record_index, actual, predicted, residual }]` are returned for interactive scatter plotting in the frontend.
+
 ---
 
-## 8. Feature Importance
+## 8. Feature Importance (`feature_importance.py`)
 
 - **Tree Models**: Extracted via `feature_importances_`.
 - **Linear Models**: Extracted via coefficient magnitudes (`np.abs(coef_)`).
@@ -136,12 +159,12 @@ Models are evaluated against the held-out test set ($20\%$):
 
 ---
 
-## 9. Model Persistence & Version Safety
+## 9. Model Persistence & Version Safety (`model_store.py`)
 
 Trained artifacts are persisted to `data/models/{model_id}/`:
 - `model.joblib`: Serialized trained scikit-learn Pipeline.
 - `metadata.json`: Model configuration, algorithm, features, row counts, creation timestamp, and dataset version.
-- `metrics.json`: Candidate model comparison metrics and best model summary.
+- `metrics.json`: Candidate model comparison metrics, cross-validation metrics, actual-vs-predicted points, and best model summary.
 - `feature_schema.json`: Expected input features with data types and sample values.
 
 ### Version Safety
@@ -186,6 +209,8 @@ If a dataset is refreshed and increments from `v1` to `v2`, inference requests a
   "problem_type": "regression",
   "features": ["Customer_Age", "City", "Product_Category", "Quantity", "Unit_Price", "Discount_Percent"],
   "test_size": 0.2,
+  "cv_folds": 5,
+  "validation_strategy": "k_fold",
   "random_state": 42
 }
 ```
@@ -201,14 +226,29 @@ If a dataset is refreshed and increments from `v1` to `v2`, inference requests a
   "selected_features": ["Customer_Age", "City", "Product_Category", "Quantity", "Unit_Price", "Discount_Percent"],
   "best_model": {
     "algorithm": "GradientBoostingRegressor",
-    "primary_metric": "mae",
-    "primary_metric_value": 5.02,
-    "metrics": { "mae": 5.02, "rmse": 7.21, "r2": 0.89 }
+    "primary_metric": "cv_mae",
+    "primary_metric_value": 4.88,
+    "metrics": { "mae": 5.02, "rmse": 7.21, "r2": 0.89 },
+    "cv_metrics": { "mae": 4.88, "rmse": 6.94, "r2": 0.90 }
   },
   "candidate_models": [
-    { "algorithm": "LinearRegression", "metrics": { "mae": 8.42, "rmse": 11.20, "r2": 0.71 }, "is_best": false },
-    { "algorithm": "RandomForestRegressor", "metrics": { "mae": 5.31, "rmse": 7.84, "r2": 0.87 }, "is_best": false },
-    { "algorithm": "GradientBoostingRegressor", "metrics": { "mae": 5.02, "rmse": 7.21, "r2": 0.89 }, "is_best": true }
+    {
+      "algorithm": "LinearRegression",
+      "metrics": { "mae": 8.42, "rmse": 11.20, "r2": 0.71 },
+      "cv_metrics": { "mae": 8.35, "rmse": 11.10, "r2": 0.72 },
+      "training_time_ms": 42.1,
+      "is_best": false
+    },
+    {
+      "algorithm": "GradientBoostingRegressor",
+      "metrics": { "mae": 5.02, "rmse": 7.21, "r2": 0.89 },
+      "cv_metrics": { "mae": 4.88, "rmse": 6.94, "r2": 0.90 },
+      "training_time_ms": 284.5,
+      "is_best": true
+    }
+  ],
+  "actual_vs_predicted": [
+    { "record_index": 0, "actual": 4.0, "predicted": 4.2, "residual": -0.2 }
   ],
   "training_row_count": 6944,
   "test_row_count": 1736,
@@ -253,16 +293,50 @@ If a dataset is refreshed and increments from `v1` to `v2`, inference requests a
 
 ---
 
-## 11. Known Limitations (Phase 1)
+---
 
-1. **Local-First Single Machine**: Training executes in-process on the local server. Datasets exceeding $100\text{k}$ rows are capped/sampled to $50\text{k}$ rows to ensure responsive performance.
-2. **Heuristic Leakage Detection**: The system identifies obvious post-outcome keywords (e.g. `Actual_Delivery_Date` vs `Delivery_Days`), but domain-specific data leakage requires domain knowledge and human inspection.
-3. **No Distributed Training**: No Spark, Ray, or GPU acceleration.
+## 11. Frontend User Interface (`PredictionTab.tsx`)
+
+The Supervised Prediction view provides:
+1. **Target & Problem Selector**: Choose target variable, view problem type (Regression vs Classification), and inspect recommended features.
+2. **Validation Controls**: Select cross-validation fold count ($2 \dots 10$) and splitting strategy (`kfold`, `time_aware`, `group_kfold` with selectable group column).
+3. **Leakage & Feature Exclusions**: Real-time warnings for correlation leakage ($|\rho| \ge 0.98$) and post-outcome leakage.
+4. **Candidate Leaderboard & Baseline Benchmarking**: Comparison table displaying training time, CV MAE, holdout MAE, RMSE, $R^2$, and benchmark comparison against `DummyRegressor`/`DummyClassifier` (`vs Baseline %`).
+5. **Classification Diagnostics**: $N \times N$ Confusion Matrix and Per-Class breakdown (Precision, Recall, F1 score).
+6. **Reliability Diagnostic Banner**: Automatic alerts for small sample sizes ($N < 20$) and severe class imbalance ($> 10:1$).
+7. **Holdout Residual Chart**: Actual vs. predicted fit line chart with residuals.
+8. **Feature Importance Chart**: Proportional bar chart displaying the top driving features.
+9. **Live Inference Form**: Auto-generated dynamic input fields with uncalibrated probability notice and instant predictions.
 
 ---
 
-## 12. Future Roadmap
+## 12. Phase 3 Predictive Reliability & Leakage Prevention
 
-- **Phase 2**: Batch inference, CSV predictions upload, SHAP tree explainability, prediction history logging.
-- **Phase 3**: Time-series forecasting (ARIMA, Prophet, lag-feature gradient boosting) for future revenue and demand over time.
-- **Phase 4**: Decision Intelligence Engine (scenario simulation, what-if sensitivity analysis, prescriptive recommendations).
+1. **Data Leakage Safeguards**:
+   - Learned transformations (imputers, one-hot encoders, standard scalers) fitted exclusively on train folds within cross-validation.
+   - Identifier columns and post-outcome timestamps/flags heuristically excluded from candidate features.
+   - High correlation ($|\rho| \ge 0.98$) flagged with leakage warnings.
+2. **Validation Strategy Flexibility**:
+   - `KFold`: Independent observations (stratified automatically for classification).
+   - `time_aware`: Chronological holdout splitting for temporal records.
+   - `group_kfold`: Group-aware splitting (`GroupShuffleSplit` / `GroupKFold`) preventing entity leakage (customer, order, account).
+3. **Baseline Model Comparison**:
+   - Always evaluates dummy estimators (`DummyRegressor(strategy='mean')` / `DummyClassifier(strategy='most_frequent')`).
+   - Reports `vs_baseline_pct` for all candidate models.
+4. **Edge-Case Resilience**:
+   - Zero-crash fallback when requested CV folds exceed dataset sample size.
+   - Unseen categories at inference time handled via `OneHotEncoder(handle_unknown='ignore')`.
+   - Missing values in features imputed during pipeline inference.
+
+---
+
+## 13. Roadmap for Further Prediction Development
+
+1. **Batch Inference & File Upload**:
+   - `POST /api/prediction/batch`: Upload a CSV of unlabelled records and download predictions as an enriched CSV.
+2. **SHAP Tree Explainability**:
+   - Compute exact Shapley values (`shap.TreeExplainer`) for per-record local feature contribution waterfalls.
+3. **Automated Hyperparameter Optimization**:
+   - Lightweight randomized search or Optuna tuning across tree depth, learning rate, and estimator counts.
+4. **Imbalanced Classification Safeguards**:
+   - SMOTE oversampling or balanced class weighting for severe target class skews.

@@ -84,6 +84,14 @@ export default function Chart({ chartType, data, dimension, metric, height = 300
 
   const axisStyle = { fontSize: 12, fill: '#64748b' }
   const tooltipFormatter = (v: unknown) => [formatNumber(v), met.replace(/_/g, ' ')]
+  const tooltipContentStyle = {
+    backgroundColor: '#0f172a',
+    borderColor: '#334155',
+    color: '#f8fafc',
+    borderRadius: 8,
+    fontSize: 12,
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+  }
 
   if (chartType === 'pie') {
     return (
@@ -92,7 +100,7 @@ export default function Chart({ chartType, data, dimension, metric, height = 300
           <Pie data={chartData} dataKey={met} nameKey={dim ?? undefined} outerRadius="80%" innerRadius="45%">
             {chartData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
           </Pie>
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} contentStyle={tooltipContentStyle} />
           <Legend wrapperStyle={{ fontSize: 12 }} />
         </PieChart>
       </ResponsiveContainer>
@@ -106,7 +114,7 @@ export default function Chart({ chartType, data, dimension, metric, height = 300
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey={dim ?? undefined} tick={axisStyle} />
           <YAxis tick={axisStyle} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} contentStyle={tooltipContentStyle} />
           <Scatter data={chartData} fill={PALETTE[0]} />
         </ScatterChart>
       </ResponsiveContainer>
@@ -120,7 +128,7 @@ export default function Chart({ chartType, data, dimension, metric, height = 300
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey={dim ?? undefined} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v) => formatNumber(v)} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} contentStyle={tooltipContentStyle} />
           <Line type="monotone" dataKey={met} stroke={PALETTE[0]} strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
@@ -140,7 +148,7 @@ export default function Chart({ chartType, data, dimension, metric, height = 300
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey={dim ?? undefined} tick={axisStyle} />
           <YAxis tick={axisStyle} tickFormatter={(v) => formatNumber(v)} />
-          <Tooltip formatter={tooltipFormatter} />
+          <Tooltip formatter={tooltipFormatter} contentStyle={tooltipContentStyle} />
           <Area type="monotone" dataKey={met} stroke={PALETTE[0]} fill="url(#areaFill)" strokeWidth={2} />
         </AreaChart>
       </ResponsiveContainer>
@@ -155,7 +163,7 @@ export default function Chart({ chartType, data, dimension, metric, height = 300
         <XAxis dataKey={dim ?? undefined} tick={axisStyle} interval={0} angle={chartData.length > 6 ? -20 : 0}
           textAnchor={chartData.length > 6 ? 'end' : 'middle'} height={chartData.length > 6 ? 55 : 30} />
         <YAxis tick={axisStyle} tickFormatter={(v) => formatNumber(v)} />
-        <Tooltip formatter={tooltipFormatter} />
+        <Tooltip formatter={tooltipFormatter} contentStyle={tooltipContentStyle} />
         <Bar dataKey={met} fill={PALETTE[0]} radius={[6, 6, 0, 0]}>
           {chartData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
         </Bar>

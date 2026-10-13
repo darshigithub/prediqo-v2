@@ -5,24 +5,36 @@ import type { DatasetListItem } from '../types'
 interface DatasetPickerProps {
   value: string
   onChange: (id: string) => void
+  theme?: 'light' | 'dark'
+  className?: string
 }
 
-export default function DatasetPicker({ value, onChange }: DatasetPickerProps) {
+export default function DatasetPicker({
+  value,
+  onChange,
+  theme = 'light',
+  className = '',
+}: DatasetPickerProps) {
   const [datasets, setDatasets] = useState<DatasetListItem[]>([])
 
   useEffect(() => {
     listDatasets()
       .then((r) => {
-        setDatasets(r.datasets)
-        if (!value && r.datasets.length > 0) onChange(r.datasets[0].dataset_id)
+        setDatasets(r.datasets || [])
+        if (!value && r.datasets && r.datasets.length > 0) onChange(r.datasets[0].dataset_id)
       })
       .catch(() => setDatasets([]))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const baseClasses =
+    theme === 'dark'
+      ? 'w-full max-w-xs rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-white focus:outline-none focus:border-brand-500 transition-colors'
+      : 'w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors'
+
   return (
     <select
-      className="input max-w-xs"
+      className={`${baseClasses} ${className}`}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     >

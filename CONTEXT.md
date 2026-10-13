@@ -46,6 +46,9 @@ D:\AIML\prediqo-v1/
 ├── README.md                        # Quickstart and acceptance tests
 ├── docs/
 │   ├── ARCHITECTURE.md              # Deep dive into query execution, jobs, & caching
+│   ├── ANALYTICS.md                 # Analytical engine, DuckDB execution, semantic guardrails, caching
+│   ├── PREDICTION.md                # Supervised ML prediction, target detection, CV, inference
+│   ├── FORECASTING.md               # Time-series forecasting, DuckDB aggregation, backtesting, intervals
 │   └── DEVELOPMENT_GUIDE.md         # Guide for adding connectors, charts, providers, benchmarks
 ├── scripts/
 │   ├── benchmark_large_dataset.py   # Benchmark script for 100k and 1M row datasets
@@ -91,17 +94,29 @@ D:\AIML\prediqo-v1/
 │       │   ├── dataset_store.py     # Reads/writes parquet & metadata json (reconstruction without profiling)
 │       │   └── dashboard_store.py   # Query-spec dashboard persistence & dynamic population
 │       ├── prediction/              # Supervised ML prediction layer
-│       │   ├── models.py            # Feasibility, train, predict Pydantic schemas
+│       │   ├── models.py            # Feasibility, train, predict Pydantic schemas (CV metrics, actual-vs-pred)
 │       │   ├── feasibility.py       # Prediction feasibility analyzer
 │       │   ├── target_detector.py   # Target detection & validation
-│       │   ├── feature_selector.py  # Feature recommendation & leakage prevention
+│       │   ├── feature_selector.py  # Feature recommendation & correlation leakage prevention
 │       │   ├── data_preparation.py  # DuckDB column projection, date features, ColumnTransformer
 │       │   ├── trainer.py           # Candidate model training (Linear, RF, Gradient Boosting)
-│       │   ├── evaluator.py         # Model evaluation & selection (MAE / F1)
+│       │   ├── evaluator.py         # K-Fold CV & holdout evaluation, model selection (MAE / F1)
 │       │   ├── feature_importance.py# Feature importance & coefficient extraction
 │       │   ├── model_store.py       # Joblib persistence & version validation
 │       │   ├── predictor.py         # Single-record inference & explanation
 │       │   └── service.py           # PredictionService orchestrator
+│       ├── forecasting/             # Time-series forecasting intelligence layer
+│       │   ├── models.py            # Forecast feasibility, train, predict Pydantic schemas
+│       │   ├── feasibility.py       # Eligibility, period sufficiency, date/metric detection, staleness
+│       │   ├── data_preparation.py  # DuckDB Parquet aggregation, date_trunc, frequency alignment
+│       │   ├── trainer.py           # Naive, Seasonal Naive, Moving Average, Linear Trend, SES
+│       │   ├── evaluator.py         # Chronological backtesting, MAE/RMSE/WAPE/MAPE, Naive comparison
+│       │   ├── forecaster.py        # Future projection & 80%/95% uncertainty intervals
+│       │   ├── model_store.py       # JSON model persistence, metadata & forecast storage
+│       │   └── service.py           # ForecastingService orchestrator
+│       ├── capabilities/            # Centralized schema flexibility & capability registry
+│       │   ├── models.py            # Capability schemas, granularity reports, mapping models
+│       │   └── registry.py          # Independent prediction & forecasting eligibility, overrides
 │       ├── query_engine/            # DuckDB direct Parquet analytics
 │       │   ├── parser.py            # Deterministic rule-based NL to StructuredQuery
 │       │   ├── executor.py          # DuckDB SQL generator & executor (Parquet direct, column pruning)
@@ -126,12 +141,15 @@ D:\AIML\prediqo-v1/
 │   └── src/
 │       ├── main.tsx                 # React entrypoint
 │       ├── App.tsx                  # React Router routes setup
-│       ├── types/index.ts           # Shared TypeScript interfaces & types (jobs, version, pagination)
-│       ├── services/api.ts          # Axios wrapper for jobs, datasets, explorer, dashboards
+│       ├── types/index.ts           # Shared TypeScript interfaces (prediction, forecasting, capabilities)
+│       ├── services/api.ts          # Axios wrapper for jobs, datasets, prediction, forecasting, capabilities
 │       ├── components/
 │       │   ├── Layout.tsx           # Navigation bar & layout shell
 │       │   ├── DatasetPicker.tsx    # Dataset selector dropdown
-│       │   └── ChartCard.tsx        # Dashboard card container with action buttons
+│       │   ├── ChartCard.tsx        # Dashboard card container with action buttons
+│       │   ├── PredictionTab.tsx    # Supervised ML: feasibility, CV training, holdout chart, live predict
+│       │   ├── ForecastingTab.tsx   # Time-series: aggregation, backtesting, Recharts forecast & intervals
+│       │   └── CapabilitiesTab.tsx  # Granularity assessment, semantic concept mappings & manual overrides
 │       ├── charts/
 │       │   └── Chart.tsx            # Recharts renderer (Bar, Line, Pie, Area, Scatter, KPI)
 │       └── pages/
@@ -140,7 +158,7 @@ D:\AIML\prediqo-v1/
 │           ├── DatasetDetailPage.tsx# Dataset metadata, column types, and profile
 │           ├── DataExplorerPage.tsx # Server-side DuckDB paginated table, sorting, and search
 │           ├── AnalystPage.tsx      # Natural language chat with execution timing pills
-│           ├── PredictionPage.tsx   # Supervised ML: feasibility, training, evaluation, and live inference
+│           ├── PredictionPage.tsx   # Prediction, Forecasting, and Capabilities tabs
 │           ├── ChartBuilderPage.tsx # Manual visual query & chart builder
 │           └── DashboardPage.tsx    # Saved charts grid using stored query specs
 └── data/
@@ -237,9 +255,15 @@ con.execute(f"CREATE VIEW t AS SELECT * FROM read_parquet('{parquet_path}')")
 | `GET` | `/api/datasets/{id}/semantic-model` | Complete semantic model (business roles, metrics, allowed aggs) |
 | `DELETE`| `/api/datasets/{id}` | Delete dataset parquet, metadata, and cached entries |
 | **`GET`** | **`/api/prediction/feasibility/{id}`** | **Check ML prediction feasibility, targets, and warnings** |
-| **`POST`** | **`/api/prediction/train`** | **Train candidate models (Linear, RF, GB) and select best** |
+| **`POST`** | **`/api/prediction/train`** | **Train candidate models (Linear, RF, GB) with K-Fold CV & select best** |
 | **`GET`** | **`/api/prediction/models/{id}`** | **List trained models for dataset or get model details** |
 | **`POST`** | **`/api/prediction/predict`** | **Single-record prediction with probabilities & explanation** |
+| **`GET`** | **`/api/forecast/feasibility/{id}`** | **Check time-series forecasting feasibility, dates, metrics, and staleness** |
+| **`POST`** | **`/api/forecast/train`** | **Train forecasting models with chronological backtest & 80%/95% intervals** |
+| **`GET`** | **`/api/forecast/models/{id}`** | **List trained forecast models for dataset or get model details** |
+| **`POST`** | **`/api/forecast/predict`** | **Generate projection for saved forecast model with custom horizon** |
+| **`GET`** | **`/api/capabilities/{id}`** | **Assess dataset prediction & forecasting capabilities, granularity, mappings** |
+| **`POST`** | **`/api/capabilities/{id}`** | **Override canonical field mappings and re-assess capabilities** |
 | `POST` | `/api/query` | Execute question or structured query |
 | `POST` | `/api/chart` | Execute manual ChartSpec query |
 | `GET` | `/api/ai/providers` | List available & configured LLM providers |
@@ -317,3 +341,35 @@ Benchmarks against real-world transactional data on local disk ([`scripts/benchm
    - Frontend runs on `http://127.0.0.1:5173` and proxies `/api/*` requests to `http://127.0.0.1:8000`.
 5. **Multi-Provider Fallback**:
    - In offline mode or if LLM provider keys are missing, the query engine automatically executes via the deterministic rule-based parser.
+
+---
+
+## 11. Prediction & Forecasting Intelligence Layer (Phase 1 & Phase 2)
+
+### 1. Architectural Distinction: Prediction vs Forecasting
+Prediqo strictly separates supervised record-level ML prediction from time-series forecasting:
+- **Prediction (`backend/app/prediction/`)**: Learns patterns across rows to predict a target variable (numeric regression or categorical classification) for independent records. Evaluated via K-Fold cross-validation and holdout validation.
+- **Forecasting (`backend/app/forecasting/`)**: Aggregates chronological events over regular intervals (daily, weekly, monthly) using DuckDB directly over Parquet, evaluates candidate models via chronological backtesting against a Naive benchmark, and projects future horizons with empirical 80% and 95% uncertainty intervals.
+- **Capability Registry (`backend/app/capabilities/`)**: Evaluates prediction and forecasting eligibility independently, inspects dataset granularity (transaction vs order-item repeated totals), detects canonical concept mappings with confidence scores, and allows manual overrides.
+
+### 2. Supported Forecasting Algorithms
+1. **Naive (Last Observed Value)**: $\hat{y}_{t+h} = y_t$ (mandatory benchmark).
+2. **Seasonal Naive**: Repeats the most recent seasonal cycle (e.g. 7-day weekly seasonality for daily data, 12-month seasonality for monthly data).
+3. **Moving Average**: Projects the mean of the most recent window ($W \in [2, 7]$).
+4. **Linear Trend Regression**: Fits OLS $y_t = \beta_0 + \beta_1 t$ with non-negative lower bounding.
+5. **Exponential Smoothing**: Simple Exponential Smoothing (SES) with grid-searched optimal smoothing factor $\alpha$.
+
+### 3. Chronological Backtesting & Metric Integrity
+- **No Random Shuffling**: Validation split preserves temporal order (train on past, evaluate on subsequent $H$ periods).
+- **Zero-Safety in Metrics**:
+  - **MAE**: Mean Absolute Error on holdout.
+  - **RMSE**: Root Mean Squared Error.
+  - **WAPE**: $\frac{\sum |y - \hat{y}|}{\sum |y|} \times 100\%$ when $\sum |y| > 0$.
+  - **MAPE**: Calculated only when $y \ne 0$; gracefully reported as `undefined` when actual series contains zero values to avoid division-by-zero distortion.
+- **Baseline Comparison**: All candidates report relative improvement over Naive baseline (`vs_naive_pct`).
+
+### 4. Data Granularity & Staleness Protection
+- **Staleness Detection**: Compares the dataset's latest observation date against current time. If cutoff is $> 60$ days in the past, models and UI flag output as a historical projection rather than real-time forecast.
+- **Granularity Awareness**: Distinguishes discrete transactions from order-item line items with repeated order IDs, ensuring order counts use `DISTINCT_COUNT` and order totals are not silently multiplied.
+- **Missing Period Policy**: Aggregations over Parquet via DuckDB reindex to a continuous calendar frequency. Additive metrics (SUM, COUNT) are imputed with 0.0 with warning notes; non-additive metrics (AVG) use forward-fill.
+

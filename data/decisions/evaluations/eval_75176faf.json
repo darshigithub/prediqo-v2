@@ -1,0 +1,56 @@
+{
+  "evaluation_id": "eval_75176faf",
+  "scenario": "demand",
+  "dataset_id": "ds_f46ecef3",
+  "prediction_model_id": "model_a3ff1c24",
+  "forecast_model_id": null,
+  "operational_facts": {
+    "available_capacity": 500,
+    "lead_time_days": 14
+  },
+  "total_rules_evaluated": 2,
+  "triggered_rules_count": 0,
+  "not_triggered_rules_count": 0,
+  "not_evaluable_rules_count": 2,
+  "rule_results": [
+    {
+      "rule_id": "rule_forecast_wape",
+      "rule_name": "High Forecast Volatility Warning",
+      "status": "NOT_EVALUABLE",
+      "priority": "medium",
+      "field_name": "forecast_wape",
+      "operator": "gt",
+      "evaluated_value": null,
+      "threshold_value": 25.0,
+      "evaluated_unit": "%",
+      "threshold_unit": null,
+      "message": "Missing evidence: field 'forecast_wape' is not present in provided scenario data.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": []
+    },
+    {
+      "rule_id": "rule_err_tolerance",
+      "rule_name": "Operational Error Tolerance Exceeded",
+      "status": "NOT_EVALUABLE",
+      "priority": "medium",
+      "field_name": "model_mae",
+      "operator": "gt",
+      "evaluated_value": null,
+      "threshold_value": "max_acceptable_error",
+      "evaluated_unit": null,
+      "threshold_unit": null,
+      "message": "Missing evidence: field 'model_mae' is not present in provided scenario data.",
+      "recommended_action": null,
+      "requires_approval": false,
+      "evidence_items": []
+    }
+  ],
+  "recommendations": [],
+  "missing_evidence": [
+    "Failed to load prediction model 'model_a3ff1c24': 'ModelMetadata' object has no attribute 'get'",
+    "Rule 'High Forecast Volatility Warning' not evaluable: Missing evidence: field 'forecast_wape' is not present in provided scenario data.",
+    "Rule 'Operational Error Tolerance Exceeded' not evaluable: Missing evidence: field 'model_mae' is not present in provided scenario data."
+  ],
+  "created_at": "2026-10-12T17:47:48.412747+00:00"
+}

@@ -88,8 +88,8 @@ export default function DataExplorerPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1">Data Explorer</h1>
-      <p className="text-sm text-slate-500 mb-4">
+      <h1 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Data Explorer</h1>
+      <p className="text-sm text-slate-600 mb-4">
         Direct columnar exploration via DuckDB. Paginated, sorted, and filtered on the server.
       </p>
 
@@ -205,11 +205,11 @@ export default function DataExplorerPage() {
             )}
             <table className="min-w-full text-sm">
               <thead className="sticky top-0 bg-slate-50 z-0">
-                <tr className="border-b border-slate-200 text-left text-slate-600">
+                <tr className="border-b border-slate-200 text-left text-slate-700 font-semibold">
                   {searchedCols.map((c) => (
                     <th
                       key={c}
-                      className="px-4 py-2.5 font-medium whitespace-nowrap cursor-pointer hover:text-brand-600 select-none"
+                      className="px-4 py-2.5 font-semibold whitespace-nowrap cursor-pointer hover:text-brand-600 select-none"
                       onClick={() => {
                         if (sortCol === c) setSortAsc(!sortAsc)
                         else { setSortCol(c); setSortAsc(true) }
@@ -226,7 +226,7 @@ export default function DataExplorerPage() {
                 {preview.rows.map((row, i) => (
                   <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
                     {searchedCols.map((c) => (
-                      <td key={c} className="px-4 py-2 whitespace-nowrap font-mono text-xs">{fmt(row[c])}</td>
+                      <td key={c} className="px-4 py-2 whitespace-nowrap font-mono text-xs text-slate-800">{fmt(row[c])}</td>
                     ))}
                   </tr>
                 ))}

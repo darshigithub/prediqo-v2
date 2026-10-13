@@ -211,6 +211,9 @@ export const trainPredictionModel = (payload: {
   features?: string[]
   test_size?: number
   random_state?: number
+  validation_strategy?: string
+  cv_folds?: number
+  group_column?: string | null
 }): Promise<import('../types').TrainResponse> =>
   postJson('/prediction/train', payload)
 
@@ -222,4 +225,94 @@ export const getPredictionModel = (modelId: string): Promise<import('../types').
 
 export const predictSingle = (modelId: string, features: Record<string, any>): Promise<import('../types').PredictResponse> =>
   postJson('/prediction/predict', { model_id: modelId, features })
+
+// ---------- Forecasting Layer ----------
+export const getForecastFeasibility = (datasetId: string): Promise<import('../types').ForecastFeasibilityResponse> =>
+  request(`/forecast/feasibility/${datasetId}`)
+
+export const trainForecastModel = (payload: {
+  dataset_id: string
+  date_column: string
+  metric_column: string
+  frequency?: string
+  aggregation?: string
+  horizon?: number
+  group_column?: string | null
+  imputation_method?: string | null
+  non_negative?: boolean | null
+}): Promise<import('../types').ForecastTrainResponse> =>
+  postJson('/forecast/train', payload)
+
+export const listForecastModels = (datasetId: string): Promise<{ models: import('../types').ForecastModelListItem[] }> =>
+  request(`/forecast/models/${datasetId}`)
+
+export const getForecastModel = (modelId: string): Promise<import('../types').ForecastModelMetadata> =>
+  request(`/forecast/models/${modelId}/details`)
+
+export const predictForecast = (payload: {
+  model_id: string
+  horizon?: number
+}): Promise<{
+  model_id: string
+  dataset_id: string
+  algorithm: string
+  horizon: number
+  frequency: string
+  forecast_data: import('../types').ForecastPoint[]
+  historical_end_date: string
+  is_stale: boolean
+  warnings: string[]
+}> => postJson('/forecast/predict', payload)
+
+// ---------- Capability Layer ----------
+export const getDatasetCapabilities = (datasetId: string): Promise<import('../types').CapabilityAssessmentResponse> =>
+  request(`/capabilities/${datasetId}`)
+
+export const overrideDatasetCapabilities = (
+  datasetId: string,
+  mappings: Record<string, string>
+): Promise<import('../types').CapabilityAssessmentResponse> =>
+  postJson(`/capabilities/${datasetId}`, { mappings })
+
+// ---------- Explainability (XAI) Layer ----------
+export const getExplainabilityFeasibility = (
+  modelId: string,
+  modelType: 'prediction' | 'forecasting' = 'prediction'
+): Promise<import('../types').ExplainabilityFeasibilityResponse> =>
+  request(`/explainability/feasibility/${modelId}?model_type=${modelType}`)
+
+export const getLocalExplanation = (payload: {
+  model_id: string
+  features: Record<string, any>
+  target_class?: string | number | null
+  method_preference?: string
+}): Promise<import('../types').LocalExplanationResponse> =>
+  postJson('/explainability/local', payload)
+
+export const getGlobalExplanation = (
+  modelId: string,
+  maxSampleRows = 100
+): Promise<import('../types').GlobalExplanationResponse> =>
+  request(`/explainability/global/${modelId}?max_sample_rows=${maxSampleRows}`)
+
+export const getForecastExplanation = (
+  modelId: string
+): Promise<import('../types').ForecastExplanationResponse> =>
+  request(`/explainability/forecast/${modelId}`)
+
+// ---------- AI Business Explanation Layer ----------
+export const getAIExplanationStatus = (): Promise<import('../types').AIExplanationStatus> =>
+  request('/ai/explain/status')
+
+export const explainPredictionWithAI = (
+  payload: import('../types').PredictionAIExplanationRequest
+): Promise<import('../types').AIExplanationResponse> =>
+  postJson('/ai/explain/prediction', payload)
+
+export const explainForecastWithAI = (
+  payload: import('../types').ForecastAIExplanationRequest
+): Promise<import('../types').AIExplanationResponse> =>
+  postJson('/ai/explain/forecast', payload)
+
+
 
