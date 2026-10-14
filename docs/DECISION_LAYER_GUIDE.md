@@ -176,10 +176,11 @@ This storage structure ensures that decision state persists across application r
 
 ## 8. Verification & Test Suite
 
-### Backend Pytest Suite
+### Backend Pytest Suite (15 Tests)
 Run the backend tests:
-```bash
-.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_decisions.py -o pythonpath=backend -v
+```powershell
+$env:PYTHONPATH="backend"
+.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_decisions.py -v
 ```
 All tests verify:
 1. Deterministic comparison operators (`gt`, `lt`, `eq`, `neq`, `is_present`, `is_missing`).
@@ -190,9 +191,10 @@ All tests verify:
 6. Mandatory comment validation on rejection and dismissal.
 7. End-to-end FastAPI endpoint integration via `TestClient`.
 
-### Frontend Test Suite
+### Frontend Test Suite (5 Tests)
 Run the frontend test suite:
-```bash
-node --experimental-strip-types --test frontend/tests/decisionRules.test.ts
+```powershell
+npx tsx --test frontend/tests/decisionRules.test.ts
 ```
 Verifies evidence formatting, priority badges, status transitions, comment requirements, and client-side form validation.
+

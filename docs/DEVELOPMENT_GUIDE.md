@@ -48,16 +48,17 @@ Runs all 156 test cases across:
 - `test_semantic_intelligence.py` (9 tests): Business roles, aggregation policies, and column synonyms.
 - `test_core.py` (7 tests): Standardization, rule-based parsing, and query execution.
 
-### Frontend Unit & Business Logic Tests (26 Tests)
+### Frontend Unit & Business Logic Tests (29 Tests)
 ```powershell
 npx tsx --test frontend/tests/businessMetrics.test.ts frontend/tests/xaiNarratives.test.ts frontend/tests/decisionRules.test.ts frontend/tests/aiExplanation.test.ts frontend/tests/unifiedCenters.test.ts
 ```
 Runs unit and business translation tests across:
 - `unifiedCenters.test.ts` (7 tests): Prediction Center and Forecasting Center 4-tab navigation invariants (`Overview`, `Analytics`, `AI Explanation`, `Technical Details`), regression vs classification state handling, timeline chart separation (historical actuals vs future horizon), stale data detection, full projection schedule preservation, and state persistence across tab switching.
-- `aiExplanation.test.ts` (4 tests): AI business explanation schema contract, prediction and forecast payload normalization, and limitation assertions.
-- `decisionRules.test.ts` (5 tests): Decision layer rule validation, priority/status badges, and terminal state invariants.
+- `decisionRules.test.ts` (9 tests): Evidence formatting, priority/status badges, required comments on reject/dismiss, terminal state invariants, state transitions, formula formatting, recommendation aggregation, and form validation.
+- `aiExplanation.test.ts` (4 tests): AI business explanation schema contract, deterministic fallback parity, prediction payload normalization, and forecast interval formatting.
 - `businessMetrics.test.ts` (5 tests): Numeric and currency formatting with units (`$`, `%`, `days`, `units`), regression metrics translation, classification accuracy and F1 balance, forecasting WAPE and MAE, and baseline comparison uplift calculation.
-- `xaiNarratives.test.ts` (5 tests): Local prediction drivers, positive and negative factors, log-odds margin scale notices, global dataset-wide drivers, collinearity disclosures, and forecast trajectory narrative generation.
+- `xaiNarratives.test.ts` (4 tests): Local prediction drivers, log-odds margin scale notices, global dataset-wide drivers, and forecast trajectory narrative generation.
+
 
 
 ### Frontend Production Build
@@ -449,7 +450,80 @@ Prediqo includes a standalone **Decision Center** (`/decisions`) that converts v
   - `DecisionEvaluateModal.tsx`: Wizard to link existing models/forecasts and operational facts to execute evaluations.
   - `DecisionHistoryPage.tsx`: Chronological governance audit trail.
 - **Testing**:
-  - Run backend tests: `.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_decisions.py -o pythonpath=backend -q`
-  - Run frontend unit tests: `node --experimental-strip-types --test frontend/tests/decisionRules.test.ts`
+  - Run backend tests: `.\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_decisions.py -o pythonpath=backend -v`
+  - Run frontend unit tests: `npx tsx --test frontend/tests/decisionRules.test.ts`
   - Build production frontend: `npm --prefix frontend run build`
+
+---
+
+## 15. Unified Prediction & Forecasting Center Architecture
+
+The prediction and forecasting interfaces are organized into two unified enterprise centers:
+- **Prediction Center**: [`frontend/src/pages/PredictionPage.tsx`](file:///D:/AIML/prediqo-v2/frontend/src/pages/PredictionPage.tsx)
+- **Forecasting Center**: [`frontend/src/pages/ForecastingPage.tsx`](file:///D:/AIML/prediqo-v2/frontend/src/pages/ForecastingPage.tsx)
+
+### Consistent 4-Tab Navigation Model
+Both centers share an identical tab layout:
+1. **`Overview`**: Executive KPIs, target definition, data health card, high-level visualization, and plain-English metric explanations.
+2. **`Analytics`**: In-depth visual charts (Holdout Actual vs Predicted, Residuals, Confusion Matrix, Timeline Chart with historical actuals vs future projection).
+3. **`AI Explanation`**: Executive business narratives, local driver attributions, risk callouts, verification checklists, and audit drawer.
+4. **`Technical Details`**: Candidate algorithm comparison leaderboards, CV metrics, training times, baseline uplifts, full projection tables, and exact XAI reconstruction logs.
+
+### State Preservation
+State is hoisted in the parent page component so switching tabs never resets or re-trains active models. Verified by unit tests in `frontend/tests/unifiedCenters.test.ts`.
+
+---
+
+## 16. Working with the AI Explanation Layer
+
+The AI Explanation Layer (`backend/app/ai/explanation_service.py`) translates verified mathematical outputs into business narratives:
+
+### Key Components:
+- `explanation_models.py`: Pydantic request/response schemas.
+- `explanation_validator.py`: Clause-level syntactic validator that permits legitimate disclaimers (e.g. *"Forecast intervals represent statistical bounds, not a guaranteed outcome"*) while rejecting positive certainty assertions and unwarranted causal claims.
+- `explanation_service.py`: Orchestrates provider calls with bounded corrective retries (up to 2 retries, 3 attempts total).
+- `narrative_fallback.py`: Local deterministic template engine that produces complete executive narratives when LLMs are offline, unconfigured, or fail validation.
+- `explanation_cache.py`: In-memory thread-safe cache indexing SHA-256 evidence fingerprints (<5ms response time).
+
+### Programmatic Usage:
+```python
+from app.ai.explanation_service import get_explanation_service
+from app.ai.explanation_models import PredictionAIExplanationRequest
+
+svc = get_explanation_service()
+req = PredictionAIExplanationRequest(
+    target_name="delivery_days",
+    problem_type="regression",
+    unit="days",
+    prediction=4.2,
+    baseline_reference_value=5.0,
+    decomposition_space="ORIGINAL_TARGET_SPACE",
+    contributions=[
+        {"feature": "quantity", "contribution": -0.8, "raw_value": 3}
+    ],
+    metrics={"mae": 0.5, "r2": 0.85},
+)
+res = svc.explain_prediction(req)
+print(res.summary)
+print("Is fallback:", res.is_fallback)
+print("Evidence hash:", res.evidence_fingerprint)
+```
+
+---
+
+## 17. Prediqo AI Unified Question Router & Conversational Workspace
+
+Located in `backend/app/ai/router.py` and `frontend/src/pages/PrediqoAIPage.tsx`:
+
+### Routing Logic:
+- Accepts natural language business questions and classifies intent:
+  - **`analytics`**: Dispatched to DuckDB direct Parquet execution.
+  - **`prediction`**: Recommends supervised target modeling and single-record inference.
+  - **`forecasting`**: Guides user toward temporal date/metric aggregation and future intervals.
+  - **`decision`**: Recommends evaluating active operational business rules.
+  - **`ambiguous`**: Solicits clarifying constraints with guided suggestion pills.
+- API Endpoints:
+  - `POST /api/ai/route`: Single-shot intent classification and suggested execution.
+  - `POST /api/ai/chat`: Multi-turn conversational interaction maintaining context across analytical layers.
+
 

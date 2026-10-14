@@ -259,26 +259,49 @@ Forecasting models are persisted in `data/models/fc_{model_id}/`:
 
 ---
 
-## 5. React Frontend User Interface
+## 5. Unified Forecasting Center UI (`ForecastingPage.tsx`)
 
-The frontend forecasting workflow is located in [`ForecastingTab.tsx`](file:///D:/AIML/prediqo-v2/frontend/src/components/ForecastingTab.tsx):
-1. **Configuration Bar**: Interactive selectors for Date Column, Target Metric, Aggregation (`SUM`, `AVG`, `COUNT`), Frequency (`Daily`, `Weekly`, `Monthly`, `Quarterly`), and Forecast Horizon slider ($1 \dots 36$ steps).
-2. **Interactive Charting (Recharts)**:
-   - Historic observations rendered as a solid blue line.
-   - Projected forecast values rendered as a distinct purple dashed line.
-   - Shaded 95% uncertainty interval area band visually communicating future uncertainty.
-   - Synchronized hover tooltip showing date, historic actuals, projected forecast, and 95% confidence bounds.
-3. **Model Leaderboard**:
-   - Table of candidate models highlighting the selected winner.
-   - Metric columns: Backtest MAE, RMSE, WAPE, zero-safe MAPE, and relative improvement vs. Naive baseline (`vs_naive_pct`).
-4. **Projection Schedule Table**: Tabular breakdown of future timestamps, point forecasts, and 80%/95% lower/upper bounds.
-5. **Saved Forecasters Sidebar**: Quick access to previously trained models for instant reloads.
+The modern Forecasting experience is organized into a dedicated enterprise **Forecasting Center** with consistent 4-tab navigation:
+
+1. **`Overview` Tab**:
+   - Executive KPIs: Selected Forecaster Algorithm, Aggregated Metric, Historical Horizon Periods, Baseline Improvement (`vs Naive %`).
+   - Configuration Bar: Interactive selectors for Date Column, Target Metric, Aggregation (`SUM`, `AVG`, `COUNT`), Frequency (`Daily`, `Weekly`, `Monthly`, `Quarterly`), and Horizon slider ($1 \dots 36$ steps).
+   - High-Level Timeline Chart: Unified visualization cleanly separating historical actuals (solid blue) from projected future periods (purple dashed line) with shaded 95% uncertainty interval bands.
+   - Staleness Diagnostic Banner: Automatic alert if dataset timestamps end $> 60$ days in the past, noting that projections represent historical trajectory extrapolations.
+2. **`Analytics` Tab**:
+   - Deep-Dive Time-Series Analytics: Trend trajectory visualization and seasonality profile.
+   - Backtest Error Residuals: Period-by-period holdout backtesting errors vs Naive baseline.
+   - Empirical Interval Coverage: Visual confirmation of actual holdout observations falling within nominal 80% and 95% bands.
+3. **`AI Explanation` Tab**:
+   - Executive Business Narrative: Natural-language translation of projected growth/contraction, historical momentum, and seasonal patterns.
+   - Supporting Evidence: Explicit backtest metrics (MAE, RMSE, WAPE, zero-safe MAPE) and selection justification.
+   - Non-Guarantee Policy Enforcement: Strict disclosures that forecast intervals represent statistical dispersion bounds, not guaranteed outcomes.
+   - Operational Checklist & Verification Recommendations.
+4. **`Technical Details` Tab**:
+   - Candidate Leaderboard: Comparison table of `Naive`, `Seasonal Naive`, `Moving Average`, `Linear Trend`, and `Exponential Smoothing` with backtest MAE, RMSE, WAPE, and relative error vs Naive.
+   - Full Projection Schedule: Complete tabular breakdown of all future timestamps, point forecasts, and 80%/95% lower/upper bounds.
+   - Statistical Diagnostics: Level state ($\alpha$), trend slope ($\beta$), seasonal cycle length, and zero-safe MAPE notes.
 
 ---
 
+## 6. Integrated Time-Series XAI & AI Business Explanations
+
+Prediqo equips forecasting models with deep mathematical and narrative interpretability:
+
+1. **Forecast Trajectory XAI ([`backend/app/explainability/forecasting_explainer.py`](file:///D:/AIML/prediqo-v2/backend/app/explainability/forecasting_explainer.py))**:
+   - Extracts historical level intercept ($\alpha$) and linear trend slope ($\beta$).
+   - Calculates recent momentum change percentage ($\Delta\%$) over the final historical cycle.
+   - Decomposes repeating seasonal components (e.g. 7-day or 12-month cycles).
+   - Measures empirical coverage percentage on historical holdout windows.
+2. **AI Explanation Service ([`backend/app/ai/explanation_service.py`](file:///D:/AIML/prediqo-v2/backend/app/ai/explanation_service.py))**:
+   - Translates time-series mathematical metrics into executive narratives.
+   - Enforces clause-level semantic validation with negation awareness, rejecting ungrounded certainty promises.
+   - High-performance deterministic fallback templates producing executive summaries when LLMs are unconfigured or offline.
+   - Sub-5ms response caching via SHA-256 evidence fingerprinting.
+
 ---
 
-## 6. Phase 3 Forecasting Validation & Reliability
+## 7. Forecasting Validation & Reliability
 
 1. **Rolling-Origin Multi-Window Backtesting**:
    - For series with sufficient observations ($N \ge 2H + 4$), backtesting evaluates candidates over multiple sliding cutoff windows (up to 3 origins) rather than a single fixed split.
@@ -293,13 +316,13 @@ The frontend forecasting workflow is located in [`ForecastingTab.tsx`](file:///D
    - Attaches `interval_notes` when empirical coverage diverges from nominal levels or sample sizes are modest.
 4. **Physical Boundary & Negative Detection**:
    - Automatic scan of historical observations for negative numbers (`has_negatives`).
-   - If negative values exist in history (e.g. net profit, temperature, returns), models do not clip forecasts to zero unless explicitly requested (`non_negative=True`).
+   - If negative values exist in history (e.g. net profit, returns), models do not clip forecasts to zero unless explicitly requested (`non_negative=True`).
 5. **Freshness & Staleness Diagnostics**:
    - Detects whether dataset timestamps end $> 60$ days ago and warns users that projections extend from a historical cutoff.
 
 ---
 
-## 7. Roadmap for Further Development
+## 8. Roadmap for Further Development
 
 1. **Multi-Series Grouped Forecasting**:
    - Support grouping dimensions (e.g. `GROUP BY Store_ID, date_trunc(...)`).
@@ -311,3 +334,4 @@ The frontend forecasting workflow is located in [`ForecastingTab.tsx`](file:///D
    - Integration with statistical toolkits (`statsmodels` SARIMAX, NeuralProphet).
 4. **Automated Monitoring & Recalibration**:
    - Automated drift detection comparing new real-world arrivals against past forecast intervals.
+

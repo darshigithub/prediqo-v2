@@ -209,14 +209,14 @@ Generates structured narrative for a time-series forecast.
 
 ## 8. Frontend UI Integration
 
-The `AIExplanationCard` component (`frontend/src/components/business/AIExplanationCard.tsx`) is integrated into:
-- **`PredictionTab.tsx`**: Positioned directly following `PredictionInsightCard` and `HumanReadableXAICard`.
-- **`ForecastingTab.tsx`**: Positioned directly following `ForecastInsightCard`.
+The `AIExplanationCard` component (`frontend/src/components/business/AIExplanationCard.tsx`) is seamlessly integrated into both enterprise centers:
+- **`PredictionPage.tsx` (Prediction Center)**: Rendered inside the dedicated **`AI Explanation`** tab, following `PredictionInsightCard` and `HumanReadableXAICard`.
+- **`ForecastingPage.tsx` (Forecasting Center)**: Rendered inside the dedicated **`AI Explanation`** tab, following `ForecastInsightCard`.
 
 ### UI Features:
-- **Provider Selector:** Instant switching between Ollama, Cloud LLMs, and Local Fallback.
+- **Provider Selector:** Instant switching between Ollama (Local), Cloud LLMs (OpenAI, Groq, Gemini, Claude), and Deterministic Fallback.
 - **On-Demand Generation:** User-initiated generation with loading skeleton and regeneration controls.
-- **Integrity Pill Badges:** Provider badge, cache indicator (`⚡ Cached` vs `● Freshly Generated`), and fallback indicator.
+- **Integrity Pill Badges:** Provider badge, cache indicator (`⚡ Cached` vs `● Freshly Generated`), and fallback indicator (`Rules-Based Engine`).
 - **Risk & Action Callouts:** High-contrast amber limitations card and emerald verification checklist.
 - **User-Facing Error Shields:** Provider errors and technical failures are translated to clean business guidance with immediate fallback activation, preventing raw error message leaks.
 - **Evidence Audit Drawer:** Collapsible panel exposing the SHA-256 fingerprint, generation timestamp, and normalized JSON evidence payload.
@@ -225,7 +225,7 @@ The `AIExplanationCard` component (`frontend/src/components/business/AIExplanati
 
 ## 9. Verification and Testing
 
-### Backend Test Suite (156 Tests, 34 Dedicated AI Tests):
+### Backend Test Suite (34 Dedicated AI Tests, 156 Total Tests):
 ```powershell
 $env:PYTHONPATH="backend"
 .\backend\.venv\Scripts\python.exe -m pytest backend/tests/test_ai_explanations.py -v
@@ -240,13 +240,15 @@ Covers:
 - **Evidence Fingerprinting & Caching:** SHA-256 canonical hashing and deterministic cache hits across identical evidence.
 - **Dual-Mounted FastAPI Endpoints:** Verified on both `/api/ai/explain` and `/api/v1/ai/explain`.
 
-### Frontend Test Suite (19 Tests):
+### Frontend Test Suite (4 Dedicated AI Tests, 29 Total Tests):
 ```powershell
-node --experimental-strip-types --test frontend/tests/*.test.ts
+npx tsx --test frontend/tests/aiExplanation.test.ts
 npm --prefix frontend run build
 ```
 Covers:
 - AI explanation contract validation (`frontend/tests/aiExplanation.test.ts`).
+- Normalized feature contributions and units mapping.
 - Clean production Vite bundling with 0 TypeScript compilation errors.
+
 
 

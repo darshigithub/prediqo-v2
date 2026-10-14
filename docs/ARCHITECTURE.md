@@ -6,10 +6,10 @@ This document explains the internal subsystems of Prediqo, their interaction mod
 
 ## 1. High-Level Target Architecture
 
-Prediqo follows a **Modular Monolith** pattern within a single FastAPI application (`backend/app/`). Responsibilities are strictly partitioned between the **Ingestion Path** (prepare once) and the **Query Path** (analyze many times):
+Prediqo follows a **Modular Monolith** pattern within a single FastAPI application (`backend/app/`). Responsibilities are strictly partitioned between the **Ingestion Path** (prepare once) and the **Query / Serving Path** (analyze, predict, forecast, explain, and decide many times):
 
 ```text
-                                  FRONTEND (React + Vite)
+                                  FRONTEND (React 19 + Vite 8)
                                              |
                                              v
                                   FASTAPI REST API (routes.py)
@@ -17,9 +17,9 @@ Prediqo follows a **Modular Monolith** pattern within a single FastAPI applicati
                    +-------------------------+-------------------------+
                    |                                                   |
                    v                                                   v
-           INGESTION PATH (Prepare Once)                       QUERY PATH (Analyze Many Times)
+           INGESTION PATH (Prepare Once)                       QUERY & SERVING PATH (Run Many Times)
                    |                                                   |
-           [ Ingestion Jobs ]                                   [ AI Analyst / NLP ]
+           [ Ingestion Jobs ]                                   [ Prediqo AI Router / Analyst ]
         (app/jobs/job_manager.py)                           (app/ai/ & app/query_engine/)
                    |                                                   |
         +----------+----------+                                        v
@@ -27,7 +27,7 @@ Prediqo follows a **Modular Monolith** pattern within a single FastAPI applicati
         v                     v                                (Persisted JSON metadata)
  [ Connectors ]     [ Ingestion Pipeline ]                             |
  (CSV/Excel/Sheets) (app/ingestion/pipeline.py)                        v
-        |                     |                                 [ Query Plan ]
+        |                     |                                 [ Query Plan / Intent ]
         |       Stage 1: READING                               (Pydantic AIQueryPlan)
         |       Stage 2: STANDARDIZING                                 |
         |       Stage 3: PROFILING                                     v
@@ -46,7 +46,24 @@ Prediqo follows a **Modular Monolith** pattern within a single FastAPI applicati
           [ Dataset Metadata ]                              +----------+----------+
          data/metadata/{id}.json                                       |
                    |                                                   v
-                   +---------------------------------------> [ Charts / Insights / Dashboards ]
+                   |                                        [ Charts / Dashboards ]
+                   v
+        +---------------------------------------------------------------------------------+
+        |                                                                                 |
+        v                                                 v                               v
+[ Supervised ML Prediction ]                    [ Time-Series Forecasting ]     [ Decision Rules Engine ]
+ (Linear, RF, Gradient Boosting)               (Naive, SNaive, MA, Trend, SES)   (Deterministic operators)
+        |                                                 |                               |
+        v                                                 v                               v
+[ Exact Tree & Additive XAI ]                   [ Forecast Trajectory XAI ]      [ Evidence Collector ]
+(Machine zero < 10^-14 error)                   (Trend, seasonality, coverage)            |
+        |                                                 |                               v
+        +------------------------+------------------------+                     [ Human Approval Store ]
+                                 |                                              (data/decisions/*.json)
+                                 v
+                     [ AI Explanation Layer ]
+                 (Clause validation, retries,
+                  deterministic offline fallback)
 ```
 
 ---
@@ -83,8 +100,8 @@ Each stage records execution duration in milliseconds:
 
 Prediqo uses an in-process, non-blocking job execution system designed for zero infrastructure overhead:
 
-- **Executor ([`job_manager.py`](file:///D:/AIML/prediqo-v1/backend/app/jobs/job_manager.py))**: Backed by a thread-safe `ThreadPoolExecutor(max_workers=4)`.
-- **State Model ([`job_models.py`](file:///D:/AIML/prediqo-v1/backend/app/jobs/job_models.py))**:
+- **Executor ([`job_manager.py`](file:///D:/AIML/prediqo-v2/backend/app/jobs/job_manager.py))**: Backed by a thread-safe `ThreadPoolExecutor(max_workers=4)`.
+- **State Model ([`job_models.py`](file:///D:/AIML/prediqo-v2/backend/app/jobs/job_models.py))**:
   - `JobStage`: `QUEUED`, `READING`, `STANDARDIZING`, `PROFILING`, `SEMANTIC_ANALYSIS`, `WRITING`, `COMPLETED`, `FAILED`.
   - `JobStatus`: `QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`.
 - **Persistence**: Every job state change is synchronously saved to `data/jobs/{job_id}.json`, ensuring full job inspection and debugging.
@@ -168,7 +185,7 @@ Prediqo supports two parsing paths, both strictly guarded by semantic validation
 
 ### Path B: Multi-Provider LLM Query Planner (Optional)
 - Reads the dataset schema, semantic types, business roles, and allowed aggregations directly from `data/metadata/{dataset_id}.json` without loading DataFrames.
-- Generates an `AIQueryPlan` validated by [`query_validator.py`](file:///D:/AIML/prediqo-v1/backend/app/ai/query_validator.py).
+- Generates an `AIQueryPlan` validated by [`query_validator.py`](file:///D:/AIML/prediqo-v2/backend/app/ai/query_validator.py).
 - Enforces semantic aggregation rules (rejects `SUM(ID)` or `AVG(ID)`).
 - Falls back to the deterministic parser if the LLM provider fails or is unconfigured.
 
@@ -178,7 +195,7 @@ Prediqo supports two parsing paths, both strictly guarded by semantic validation
 
 Dashboards avoid storing large static result snapshots:
 - Dashboards store the **Query Specification** (`chart_spec`: dimension, metric, aggregation, filters).
-- When a dashboard is opened, [`populate_dashboard_charts`](file:///D:/AIML/prediqo-v1/backend/app/storage/dashboard_store.py) resolves each chart dynamically:
+- When a dashboard is opened, [`populate_dashboard_charts`](file:///D:/AIML/prediqo-v2/backend/app/storage/dashboard_store.py) resolves each chart dynamically:
   1. Checks `QueryCache` for pre-calculated results.
   2. If missing, executes the query spec directly in DuckDB over Parquet.
   3. Caches the result for instant subsequent reloads.
@@ -187,7 +204,7 @@ Dashboards avoid storing large static result snapshots:
 
 ## 9. Performance Benchmark Profile
 
-Tested on local disk with 100k and 1M row transactional datasets ([`scripts/benchmark_results.json`](file:///D:/AIML/prediqo-v1/scripts/benchmark_results.json)):
+Tested on local disk with 100k and 1M row transactional datasets ([`scripts/benchmark_results.json`](file:///D:/AIML/prediqo-v2/scripts/benchmark_results.json)):
 
 | Operation | 100,000 Rows | 1,000,000 Rows | Architecture Advantage |
 |---|---|---|---|
@@ -285,4 +302,98 @@ Prediqo dynamically analyzes diverse tabular schemas without rigid naming requir
 - **Capability Assessment**: Dynamically determines dataset suitability for regression prediction, classification prediction, time-series forecasting, or both, with clear degradation explanations.
 - **Manual Mapping Overrides**: Supports user corrections to auto-detected field roles via REST API.
 
+---
 
+## 13. Explainability Architecture (XAI Layer)
+
+Located in `backend/app/explainability/`, this layer provides local and global interpretability grounded directly in mathematical estimators:
+
+### Exact Additive Tree Path Decomposition (`local_explainer.py`)
+For ensemble tree models (`RandomForestRegressor`, `RandomForestClassifier`, `GradientBoostingRegressor`, `GradientBoostingClassifier`), the local explainer evaluates the root-to-leaf decision paths:
+$$\Delta_j^{tree}(x) = \sum_{k \in P : \text{split}(v_{k-1}) = j} (v_k - v_{k-1})$$
+- Traces telescoping sums across every node transition.
+- Guarantees exact mathematical identity:
+  $$Y_0 + \sum_{j=1}^{p} \Delta_j(x) = \hat{y}(x)$$
+  with numerical reconstruction error $< 10^{-14}$.
+
+### Grouped Categorical Attribution (`feature_metadata.py`)
+- Standard one-hot encoders produce sparse binary indicators (e.g. `City_Bangalore`, `City_Mumbai`).
+- The feature metadata inspector groups these indicator columns back to the root attribute (`City`) at the individual record level before calculating global statistics.
+
+### Classification Spaces
+- **`RandomForestClassifier`**: Decomposed in `PROBABILITY_SPACE` ($P = \text{ref} + \sum \Delta$), where leaf voting shares telescope additively to class probabilities.
+- **`GradientBoostingClassifier` & `LogisticRegression`**: Decomposed in `LOG_ODDS_MARGIN` space ($z = \text{ref} + \sum \Delta$), with explicit disclosures that non-linear sigmoid/softmax projections alter point-wise percentage interpretations.
+
+### Forecast Trajectory Decompositions (`forecasting_explainer.py`)
+- Analyzes trend slope ($\beta_1$), historical level baseline ($\alpha$), cyclic seasonal components, and empirical backtest coverage (percentage of holdout observations within nominal 80% and 95% intervals).
+
+---
+
+## 14. AI Business Explanation Layer & Non-Guarantee Safety Guardrails
+
+Located in `backend/app/ai/explanation_service.py`, this layer translates verified mathematical outputs into structured, executive-ready narratives without hallucination:
+
+### Core Safeguards
+1. **Strict Evidence Boundary**: LLMs receive validated metrics and feature attributions in a canonical JSON format and are constrained to translate—never compute or invent—values.
+2. **Clause-Level Syntactic Validation (`explanation_validator.py`)**:
+   - Analyzes sentences at the sub-clause level.
+   - Permits negative disclaimers (e.g., *"Forecast intervals represent statistical bounds, not a guaranteed outcome"*).
+   - Rejects un-negated positive assertions of certainty (e.g., *"guaranteed outcome"*, *"100% certainty"*) and unverified causal claims (*"directly causes"*).
+3. **Bounded Corrective Retries**:
+   - If validation fails, up to 2 retries (3 total attempts) are performed.
+   - Injects the specific validation error message into the subsequent prompt so the LLM explicitly corrects the policy violation.
+4. **Deterministic Fallback Engine (`narrative_fallback.py`)**:
+   - If the provider is offline, unreachable, or exhausts retries, a local deterministic engine synthesizes executive narratives using verified templates.
+   - Sets `is_fallback: true` so the UI presents the narrative seamlessly without leaking technical error traces.
+5. **SHA-256 Fingerprint Caching (`explanation_cache.py`)**:
+   - Hashes canonical evidence JSON. Returns cached explanations in $< 5\text{ms}$.
+
+---
+
+## 15. Decision Intelligence Layer & Governance
+
+Located in `backend/app/decisions/`, this layer translates ML predictions and forecasts into deterministic operational recommendations:
+
+### Deterministic Rules Engine (`rules_engine.py`)
+- Evaluates explicit conditions using comparison operators (`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `is_present`, `is_missing`).
+- Supports static thresholds (e.g. `available_inventory < 100`) and dynamic field comparisons (`forecast_peak > available_capacity`).
+- Three-state evaluation: `TRIGGERED`, `NOT_TRIGGERED`, and `NOT_EVALUABLE` (missing fields or conflicting units).
+
+### Zero-Retraining Evidence Collection (`evidence_collector.py`)
+- Collects facts directly from model artifacts, forecasts, and dataset profiles on disk with zero retraining.
+
+### Human-in-the-Loop Governance (`service.py`)
+- Lifecycle: `needs_review` $\rightarrow$ `pending_approval` $\rightarrow$ `approved` $\rightarrow$ `completed`, or `rejected` / `dismissed`.
+- **Mandatory Justification**: Rejections and dismissals strictly enforce a justification comment.
+- **Audit Logging**: Every status transition is immutably logged with timestamp, user, previous status, new status, and comment in `data/decisions/audit_log.json`.
+
+---
+
+## 16. Prediqo AI Unified Question Router & Conversational Workspace
+
+Located in `backend/app/ai/router.py` and `frontend/src/pages/PrediqoAIPage.tsx`:
+
+- **Unified Entry Point**: A single chat interface accepting natural language business inquiries.
+- **Intent Classifier**: Categorizes user requests into:
+  - **`analytics`**: Directs to DuckDB direct Parquet execution.
+  - **`prediction`**: Recommends supervised target modeling and single-record inference.
+  - **`forecasting`**: Guides user toward temporal date/metric aggregation and future intervals.
+  - **`decision`**: Recommends evaluating active operational business rules.
+  - **`ambiguous`**: Solicits clarifying constraints with guided suggestion pills.
+
+---
+
+## 17. Unified 4-Tab Center UI Architecture
+
+The frontend provides two unified enterprise centers with a consistent 4-tab layout:
+1. **Prediction Center (`frontend/src/pages/PredictionPage.tsx`)**
+2. **Forecasting Center (`frontend/src/pages/ForecastingPage.tsx`)**
+
+### 4-Tab Invariants:
+1. **`Overview`**: High-level KPIs, target definition, data health card, executive summary, and plain-English metric explanations.
+2. **`Analytics`**: Interactive visual charts (Holdout Actual vs Predicted, Residuals, Confusion Matrix, Timeline Chart with historical actuals vs future projection).
+3. **`AI Explanation`**: Business narratives, local feature driver cards, risk callouts, verification checklists, and audit drawer.
+4. **`Technical Details`**: Candidate algorithm comparison leaderboards, CV metrics, training times, baseline uplifts, full projection tables, and exact XAI reconstruction logs.
+
+### State Preservation:
+Switching between tabs preserves all active models, evaluation metrics, and user configuration without re-fetching or resetting component state.

@@ -295,22 +295,51 @@ If a dataset is refreshed and increments from `v1` to `v2`, inference requests a
 
 ---
 
-## 11. Frontend User Interface (`PredictionTab.tsx`)
+## 11. Unified Prediction Center UI (`PredictionPage.tsx`)
 
-The Supervised Prediction view provides:
-1. **Target & Problem Selector**: Choose target variable, view problem type (Regression vs Classification), and inspect recommended features.
-2. **Validation Controls**: Select cross-validation fold count ($2 \dots 10$) and splitting strategy (`kfold`, `time_aware`, `group_kfold` with selectable group column).
-3. **Leakage & Feature Exclusions**: Real-time warnings for correlation leakage ($|\rho| \ge 0.98$) and post-outcome leakage.
-4. **Candidate Leaderboard & Baseline Benchmarking**: Comparison table displaying training time, CV MAE, holdout MAE, RMSE, $R^2$, and benchmark comparison against `DummyRegressor`/`DummyClassifier` (`vs Baseline %`).
-5. **Classification Diagnostics**: $N \times N$ Confusion Matrix and Per-Class breakdown (Precision, Recall, F1 score).
-6. **Reliability Diagnostic Banner**: Automatic alerts for small sample sizes ($N < 20$) and severe class imbalance ($> 10:1$).
-7. **Holdout Residual Chart**: Actual vs. predicted fit line chart with residuals.
-8. **Feature Importance Chart**: Proportional bar chart displaying the top driving features.
-9. **Live Inference Form**: Auto-generated dynamic input fields with uncalibrated probability notice and instant predictions.
+The modern Prediction experience is organized into a dedicated enterprise **Prediction Center** with consistent 4-tab navigation:
+
+1. **`Overview` Tab**:
+   - Executive KPIs: Active Model algorithm, Problem Type, Primary Validation Metric (CV MAE or F1 Score), Target Unit.
+   - Target Definition & Problem Selector: Choose target variable, view problem type, and inspect recommended features.
+   - Data Health & Completeness: Cell completeness, missing columns, and data quality grade.
+   - Live Single-Record Inference: Dynamic input form with instant predictions, class probabilities, and baseline shifts.
+2. **`Analytics` Tab**:
+   - Holdout Residual Chart: Actual vs Predicted fit line chart with scatter points and residuals.
+   - Classification Diagnostics: $N \times N$ Confusion Matrix and Per-Class breakdown (Precision, Recall, F1 score).
+   - Candidate Comparison Chart: Visual error comparisons between models and naive baseline.
+3. **`AI Explanation` Tab**:
+   - Executive Business Narrative: Natural-language translation of model quality, operational meaning, and key drivers.
+   - Local Feature Drivers: Signed contributions ($\blacktriangle$ Positive, $\blacktriangledown$ Negative) with relative weight percentages.
+   - Scale & Margin Disclosures: Clarification of probability shifts vs log-odds decision margin space.
+   - Operational Limitations & Pre-Decision Checklist.
+4. **`Technical Details` Tab**:
+   - Candidate Leaderboard: Comparison table of Linear, Random Forest, and Gradient Boosting pipelines with training times, CV metrics, holdout metrics, and baseline uplifts.
+   - Validation Configuration: K-Fold cross-validation settings ($2 \dots 10$ folds), time-aware split, or group-aware split.
+   - Data Leakage Guardrails: Pearson correlation leakage warnings ($|\rho| \ge 0.98$) and post-outcome heuristics.
+   - Mathematical XAI Reconstruction Log: Exact additive validation confirmation with machine-precision error bounds ($< 10^{-14}$).
 
 ---
 
-## 12. Phase 3 Predictive Reliability & Leakage Prevention
+## 12. Integrated Explainable AI & AI Business Explanations
+
+Prediqo integrates deep interpretability directly into the prediction workflow:
+
+1. **Exact Additive Tree Path Decomposition ([`backend/app/explainability/`](file:///D:/AIML/prediqo-v2/backend/app/explainability/))**:
+   - For `RandomForest` and `GradientBoosting`, traces individual tree decision paths:
+     $$\Delta_j^{tree}(x) = \sum_{k \in P : \text{split}(v_{k-1}) = j} (v_k - v_{k-1})$$
+   - Confirms exact mathematical identity $Y_0 + \sum \Delta_j = \hat{y}$ with reconstruction error $< 10^{-14}$.
+2. **Grouped Categorical Attribution**:
+   - One-hot encoded indicators (`City_Bangalore`, `City_Mumbai`) are summed back to their parent column (`City`) at the record level before computing global metrics.
+3. **AI Explanation Service ([`backend/app/ai/explanation_service.py`](file:///D:/AIML/prediqo-v2/backend/app/ai/explanation_service.py))**:
+   - Translates mathematical attributions into executive narratives using multi-provider LLMs or local Ollama.
+   - Enforces clause-level semantic validation with non-guarantee guardrails and bounded corrective retries.
+   - Instant offline fallback to deterministic templates with zero error leaks.
+   - SHA-256 fingerprint caching returning sub-5ms cached explanations.
+
+---
+
+## 13. Predictive Reliability & Leakage Prevention
 
 1. **Data Leakage Safeguards**:
    - Learned transformations (imputers, one-hot encoders, standard scalers) fitted exclusively on train folds within cross-validation.
@@ -330,13 +359,14 @@ The Supervised Prediction view provides:
 
 ---
 
-## 13. Roadmap for Further Prediction Development
+## 14. Roadmap for Further Prediction Development
 
 1. **Batch Inference & File Upload**:
    - `POST /api/prediction/batch`: Upload a CSV of unlabelled records and download predictions as an enriched CSV.
-2. **SHAP Tree Explainability**:
-   - Compute exact Shapley values (`shap.TreeExplainer`) for per-record local feature contribution waterfalls.
-3. **Automated Hyperparameter Optimization**:
+2. **Automated Hyperparameter Optimization**:
    - Lightweight randomized search or Optuna tuning across tree depth, learning rate, and estimator counts.
-4. **Imbalanced Classification Safeguards**:
+3. **Imbalanced Classification Safeguards**:
    - SMOTE oversampling or balanced class weighting for severe target class skews.
+4. **Model Drift & Monitoring**:
+   - Continuous population stability index (PSI) tracking to detect feature drift over time.
+

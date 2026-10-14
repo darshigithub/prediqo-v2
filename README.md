@@ -1,31 +1,37 @@
-# Prediqo — AI Data Analytics Platform
+# Prediqo — AI Data Analytics & Decision Intelligence Platform
 
-A local-first AI data analytics platform inspired by Julius AI and Databricks.
+A local-first AI data analytics, machine learning prediction, time-series forecasting, and decision intelligence platform inspired by Julius AI, Tellius, and Databricks.
 
 Prediqo provides an end-to-end analytics workflow:
 
 ```text
 Connect Data → Prepare Once (Async Job) → Explore Data (DuckDB Paginated)
-             → Ask Questions (AI / NLP) → Analyze Parquet (DuckDB)
-             → Interactive Charts → Dynamic Dashboards
+             → Ask Questions (Prediqo AI Router / NLP) → Analyze Parquet (DuckDB)
+             → Predict & Forecast (Supervised ML & Time Series)
+             → Explain Results (Exact XAI & AI Narratives)
+             → Decide & Govern (Deterministic Rules & Approvals)
 ```
 
-**Core Philosophy (Phase 2.5)**:
-> **"Prepare the data once, analyze it many times."**
-> Ingestion is completely decoupled from the query path. Asking questions or browsing data never re-reads source files, re-profiles columns, or instantiates raw DataFrames into memory.
+**Core Philosophy**:
+> **"Prepare the data once, analyze it many times."**  
+> Ingestion is completely decoupled from the query and modeling paths. Asking questions, running predictions, generating forecasts, or evaluating decision rules never re-reads raw source files, re-profiles columns, or instantiates raw DataFrames into memory.
 
-No Docker, no external database, no Celery/Redis, no authentication — everything runs locally with local-file storage and high-speed in-process analytics.
+No Docker, no external database, no Celery/Redis, no mandatory cloud API keys — everything runs locally with local-file storage, in-process DuckDB columnar querying, and deterministic fallback engines.
 
 ---
 
 ## Documentation & Living Context
 
-- **[CONTEXT.md](CONTEXT.md)** — Living context document covering mental model, component responsibilities, API reference, and known quirks.
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Architectural blueprint covering modular monolith design, background ingestion jobs, DuckDB direct Parquet execution, query caching, and benchmarks.
-- **[docs/ANALYTICS.md](docs/ANALYTICS.md)** — Analytical engine architecture covering DuckDB direct Parquet execution, query caching, semantic guardrails, and dashboards.
-- **[docs/PREDICTION.md](docs/PREDICTION.md)** — Complete machine learning prediction guide covering target detection, candidate algorithms, cross-validation, persistence, and live inference.
+- **[CONTEXT.md](CONTEXT.md)** — Living context document covering mental model, component responsibilities, API contracts, and troubleshooting guide.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Architectural blueprint covering modular monolith design, background ingestion jobs, DuckDB direct Parquet execution, query caching, ML/forecasting pipelines, and benchmarks.
+- **[docs/ANALYTICS.md](docs/ANALYTICS.md)** — Analytical engine architecture covering DuckDB direct Parquet execution, query caching, semantic guardrails, and dynamic dashboards.
+- **[docs/PREDICTION.md](docs/PREDICTION.md)** — Supervised machine learning prediction guide covering target detection, candidate algorithms, cross-validation, holdout evaluation, residuals, and live inference.
 - **[docs/FORECASTING.md](docs/FORECASTING.md)** — Time-series forecasting intelligence guide covering DuckDB temporal aggregation, candidate forecasters, chronological backtesting, and uncertainty intervals.
-- **[docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)** — Development guide for adding connectors, charts, multi-provider LLMs, and running benchmarks.
+- **[docs/DECISION_LAYER_GUIDE.md](docs/DECISION_LAYER_GUIDE.md)** — Decision Layer architectural guide covering deterministic rules engine, evidence collection, recommendation store, and human-in-the-loop approvals.
+- **[docs/AI_EXPLANATIONS.md](docs/AI_EXPLANATIONS.md)** — AI business explanation guide covering multi-provider LLMs, local Ollama, non-guarantee safety guardrails, corrective retries, and deterministic offline fallbacks.
+- **[docs/EXPLAINABILITY.md](docs/EXPLAINABILITY.md)** — Explainable AI (XAI) guide covering exact tree path decomposition, grouped one-hot categoricals, and forecast trajectory decompositions.
+- **[docs/BUSINESS_PREDICTION_GUIDE.md](docs/BUSINESS_PREDICTION_GUIDE.md)** — Plain-English operational guide for business users, managers, and analysts.
+- **[docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)** — Engineering guide for setup, running tests, adding connectors, candidate models, decision rules, and benchmarks.
 
 ---
 
@@ -33,23 +39,35 @@ No Docker, no external database, no Celery/Redis, no authentication — everythi
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 19, TypeScript, Vite 8, Tailwind CSS, Recharts 3 |
-| **Backend** | Python 3.13, FastAPI, DuckDB, PyArrow, Pandas |
-| **Job Engine** | In-process `ThreadPoolExecutor` with persistent JSON job tracking |
-| **Cache Engine** | File-based Canonical SHA-256 Query Cache (`data/cache/query/`) |
+| **Frontend** | React 19, TypeScript, Vite 8, Tailwind CSS, Recharts 3, Lucide Icons |
+| **Backend** | Python 3.13, FastAPI, Uvicorn |
 | **Analytics Engine**| DuckDB executing directly over Parquet files with column pruning and filter push-down |
-| **Storage** | Local filesystem (`data/uploads`, `data/datasets`, `data/metadata`, `data/jobs`, `data/cache`) |
+| **Job Engine** | In-process `ThreadPoolExecutor` with persistent JSON job tracking (`data/jobs/`) |
+| **Cache Engine** | File-based Canonical SHA-256 Query Cache (`data/cache/query/`) and In-Memory XAI/AI Cache |
+| **Prediction Engine**| `scikit-learn` (Linear Regression, Logistic Regression, Random Forest, Gradient Boosting) |
+| **Forecasting Engine**| DuckDB `date_trunc`, Naive, Seasonal Naive, Moving Average, Linear Trend, Exponential Smoothing |
+| **Explainable AI (XAI)**| Exact decision tree path telescoping sums, linear coefficient attributions, forecast decompositions |
+| **AI Explanation Layer**| Multi-provider LLMs (Ollama, OpenAI, Groq, Gemini, Anthropic) + Deterministic Fallback Engine |
+| **Decision Layer**| Deterministic AST-free rules engine, evidence collector, human review & approval workflow |
+| **Storage** | Local filesystem (`data/uploads`, `data/datasets`, `data/metadata`, `data/models`, `data/decisions`, `data/cache`) |
 
 ---
 
 ## Project Structure
 
 ```text
-prediqo-v1/
+prediqo-v2/
 ├── CONTEXT.md                       # Living context document
 ├── README.md                        # Project overview and quickstart
-├── docs/
+├── docs/                            # In-depth architectural & operational guides
 │   ├── ARCHITECTURE.md              # In-depth architectural blueprint
+│   ├── ANALYTICS.md                 # DuckDB analytics engine & semantic guardrails
+│   ├── PREDICTION.md                # Supervised ML prediction layer
+│   ├── FORECASTING.md               # Time-series forecasting intelligence layer
+│   ├── DECISION_LAYER_GUIDE.md      # Deterministic decision rules & human governance
+│   ├── AI_EXPLANATIONS.md           # Business explanation layer & non-guarantee safety
+│   ├── EXPLAINABILITY.md            # Exact additive XAI decompositions & tree paths
+│   ├── BUSINESS_PREDICTION_GUIDE.md # Plain-English user guide
 │   └── DEVELOPMENT_GUIDE.md         # Developer guide and extension recipes
 ├── scripts/
 │   ├── generate_sample_data.py      # Generates sample e-commerce CSV
@@ -57,46 +75,37 @@ prediqo-v1/
 │   ├── benchmark_results.json       # Persisted benchmark metrics
 │   └── verify_acceptance_workflow.py# 10-step Section 35 acceptance workflow verification
 ├── backend/
-│   ├── tests/
-│   │   ├── test_core.py             # Core parser and standardization tests
-│   │   ├── test_ai_analyst.py       # AI analyst & LLM provider tests
-│   │   ├── test_semantic_intelligence.py # Semantic intelligence & aggregation policy tests
-│   │   └── test_phase25_architecture.py # Ingestion jobs, cache, versioning, DuckDB tests
 │   ├── requirements.txt             # Pinned requirements
 │   ├── requirements-flex.txt        # Recommended flexible requirements
+│   ├── tests/                       # 156 automated test cases (all passing)
 │   └── app/
-│       ├── main.py                  # FastAPI entrypoint & CORS
-│       ├── api/routes.py            # REST API endpoints
+│       ├── main.py                  # FastAPI entrypoint, middleware & CORS
+│       ├── api/routes.py            # Core REST API endpoints
 │       ├── core/config.py           # Directory configurations
 │       ├── models/                  # DatasetStatus, DatasetMetadata, schemas
 │       ├── jobs/                    # Asynchronous ingestion job subsystem
-│       │   ├── job_models.py        # IngestionJob, JobStage, JobStatus
-│       │   ├── job_manager.py       # Thread-safe executor & JSON persistence
-│       │   └── ingestion_job.py     # Background worker logic
 │       ├── ingestion/               # Decoupled data preparation pipeline
-│       │   ├── pipeline.py          # Read, standardize, profile, semantic, store
-│       │   └── service.py           # High-level ingestion and refresh triggers
 │       ├── storage/                 # Parquet dataset & query-spec dashboard stores
 │       ├── cache/                   # Canonical SHA-256 query cache
 │       ├── query_engine/            # DuckDB direct Parquet analytics & NL parser
 │       ├── standardization/         # Cleaning, profiling, and semantic intelligence
+│       ├── capabilities/            # Centralized schema flexibility & capability registry
+│       ├── prediction/              # Supervised ML prediction layer
+│       ├── forecasting/             # Time-series forecasting intelligence layer
+│       ├── explainability/          # Exact additive XAI decompositions
+│       ├── decisions/               # Deterministic Decision Layer & Rules Engine
 │       ├── connectors/              # CSV, Excel, Google Sheets, Postgres
-│       └── ai/                      # AI analyst, query planner, validator, prompts
-├── frontend/
-│   ├── src/
-│   │   ├── pages/                   # Data Sources, Datasets, Explorer, Analyst, Dashboards
-│   │   ├── components/              # Layout, ChartCard, DatasetPicker
-│   │   ├── charts/                  # Recharts visualizer (Bar, Line, Area, Pie, KPI)
-│   │   ├── services/api.ts          # Backend API client with job monitoring
-│   │   └── types/                   # TypeScript interfaces
-│   ├── package.json
-│   └── vite.config.ts
-└── data/
-    ├── uploads/                     # Original raw uploaded files
-    ├── datasets/                    # Analytical Parquet storage (`ds_<id>.parquet`)
-    ├── metadata/                    # Schema, profile, semantic model, dashboards
-    ├── jobs/                        # Persisted background job JSON records
-    └── cache/query/                 # Cached query result JSON files
+│       └── ai/                      # AI analyst, question router, explanation service
+└── frontend/
+    ├── package.json                 # React dependencies & scripts
+    ├── vite.config.ts               # Vite configuration with /api reverse proxy
+    ├── tests/                       # 29 frontend business & unit test cases (all passing)
+    └── src/
+        ├── pages/                   # Unified Prediction & Forecasting Centers, Decision Center, AI Chat
+        ├── components/              # 4-tab components, visual cards, charts, and modals
+        ├── services/                # Axios API clients
+        ├── types/                   # TypeScript schemas
+        └── charts/                  # Recharts visualizer
 ```
 
 ---
@@ -127,10 +136,18 @@ npm run dev
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173) — Vite proxies `/api/*` to the FastAPI backend.
 
-### 3. Sample Data
+### 3. Optional: Local Ollama (Zero API Keys)
 
-An e-commerce dataset (`data/uploads/ecommerce_sales.csv`, 50 rows × 18 columns) is included.
-Regenerate it anytime with:
+To run business explanations locally without cloud API keys:
+```powershell
+ollama serve
+ollama run llama3.2
+```
+When Ollama is offline or unconfigured, Prediqo automatically uses its built-in deterministic fallback engine with zero downtime or error leaks.
+
+### 4. Sample Data
+
+An e-commerce dataset (`data/uploads/ecommerce_sales.csv`, 50 rows × 18 columns) is included. Regenerate it anytime with:
 
 ```powershell
 python scripts/generate_sample_data.py
@@ -141,7 +158,7 @@ python scripts/generate_sample_data.py
 ## Key Architecture & Features
 
 ### 1. Decoupled Ingestion Pipeline & Job System
-- File uploads and source imports return immediately with an `IngestionJob` (`QUEUED`).
+- File uploads return immediately with an `IngestionJob` (`QUEUED`).
 - Background worker processes data through sequential stages:
   `READING` $\rightarrow$ `STANDARDIZING` $\rightarrow$ `PROFILING` $\rightarrow$ `SEMANTIC_ANALYSIS` $\rightarrow$ `WRITING` $\rightarrow$ `READY`.
 - The frontend monitors the job in real time with an interactive visual checklist and progress bar.
@@ -162,11 +179,32 @@ python scripts/generate_sample_data.py
 - Cached queries return sub-10ms results with `cache_hit: true`.
 - Dataset version bumps automatically invalidate stale caches.
 
-### 5. Semantic Intelligence & AI Analyst
-- **Deterministic Rules by Default**: Works 100% offline without API keys.
-- **Multi-Provider LLM Support**: Optional OpenAI, Groq, Gemini, Anthropic, or custom endpoints.
-- **Aggregation Policy Protection**: Prevents illogical mathematical queries (e.g. rejects `SUM(ID)` or `AVG(ID)`).
-- **Metric Discovery**: Discovers business metrics (`Total Orders`, `Average Order Value`, `Units Sold`).
+### 5. Unified Prediction Center & Forecasting Center UI
+- Consistent 4-tab enterprise architecture across both centers:
+  - **Overview**: High-level KPIs, target definitions, data health cards, and plain-English summaries.
+  - **Analytics**: Holdout Actual vs Predicted charts, residuals scatter, confusion matrix, timeline charts (historical actuals vs projected future).
+  - **AI Explanation**: Executive narratives, local driver attributions, risk callouts, verification checklists, and audit drawer.
+  - **Technical Details**: Algorithm leaderboard, cross-validation metrics, baseline uplifts, full projection schedules, and exact XAI reconstruction logs.
+
+### 6. Explainable AI (XAI) Layer
+- **Exact Additive Tree Path Decomposition**: Exact telescoping sums for Decision Trees, Random Forests, and Gradient Boosting with numerical reconstruction error $< 10^{-14}$.
+- **Grouped Categorical Attribution**: Inverse maps one-hot encoded indicators back to root categorical features at the record level.
+- **Scale Safety**: Clearly labels probability shifts vs log-odds decision margins.
+
+### 7. AI Business Explanation Layer & Non-Guarantee Safety Guardrails
+- **Clause-Level Validation**: Distinguishes valid disclaimers (e.g. *"Forecast intervals represent statistical bounds, not a guaranteed outcome"*) from certainty promises (*"guaranteed return"*).
+- **Corrective Retries**: Up to 2 retries (3 attempts total) injecting validation errors into the re-prompt.
+- **Deterministic Local Fallback**: Safe mathematical templates when LLMs are offline or fail validation.
+- **SHA-256 Evidence Caching**: Sub-5ms cached responses for identical evidence payloads.
+
+### 8. Decision Intelligence Layer & Human Governance
+- **Deterministic Rules Engine**: Safe comparison operators (`gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `is_present`, `is_missing`).
+- **Zero Retraining Required**: Evaluates existing model artifacts and dataset profiles directly on disk.
+- **Human-in-the-Loop Governance**: Approval workflow (`needs_review`, `pending_approval`, `approved`, `rejected`, `dismissed`, `completed`) with mandatory comments on rejection and dismissal.
+
+### 9. Prediqo AI Unified Question Router
+- Unified conversational entry point.
+- Automatically routes questions between Analytics (DuckDB), Prediction (ML), Forecasting (Time Series), and Decisions (Rules Engine).
 
 ---
 
@@ -185,53 +223,71 @@ GET    /api/ingestion/jobs                     # List recent jobs
 GET    /api/datasets                           # List datasets (version, status, row_count)
 GET    /api/datasets/{id}                      # Load metadata without re-profiling
 POST   /api/datasets/{id}/refresh              # Trigger zero-downtime background refresh
-GET    /api/datasets/{id}/preview              # DuckDB server-side paginated preview (?page&page_size&sort_col&search)
+GET    /api/datasets/{id}/preview              # DuckDB server-side paginated preview
 GET    /api/datasets/{id}/semantic-model       # Persisted business roles & allowed aggregations
 DELETE /api/datasets/{id}
 
 # Prediction Layer (Supervised ML)
 GET    /api/prediction/feasibility/{id}        # Check ML feasibility, regression/classification targets
-POST   /api/prediction/train                   # Train candidate models (Linear, RF, GB) with K-Fold CV & select best
+POST   /api/prediction/train                   # Train candidate models (Linear, RF, GB) with K-Fold CV
 GET    /api/prediction/models/{id}             # List models for dataset or retrieve model details
 POST   /api/prediction/predict                 # Single-record inference with probabilities & explanation
 
 # Forecasting Layer (Time-Series Intelligence)
-GET    /api/forecast/feasibility/{id}          # Check forecasting feasibility, candidate dates & measures, staleness
-POST   /api/forecast/train                     # Aggregate DuckDB Parquet, backtest candidates vs Naive, project intervals
+GET    /api/forecast/feasibility/{id}          # Check forecasting feasibility, dates, metrics, staleness
+POST   /api/forecast/train                     # Aggregate DuckDB Parquet, backtest candidates, project intervals
 GET    /api/forecast/models/{id}               # List trained forecast models for dataset
 GET    /api/forecast/models/{id}/details       # Retrieve saved forecast model metadata and projection
 POST   /api/forecast/predict                   # Project future periods for saved model with custom horizon
 
-# Capability Assessment Layer
-GET    /api/capabilities/{id}                  # Granularity assessment, semantic concept mappings, eligibility matrix
-POST   /api/capabilities/{id}                  # Apply manual field mapping overrides
+# Explainable AI (XAI)
+GET    /api/explainability/feasibility/{id}    # Check XAI capabilities and exact decomposition
+POST   /api/explainability/local               # Exact additive feature contributions for prediction
+GET    /api/explainability/global/{id}         # Grouped feature importance with collinearity warnings
+GET    /api/explainability/forecast/{id}       # Forecast trend, level state, seasonal cycles
 
-# Analytics & AI
+# AI Business Explanations
+GET    /api/ai/explain/status (or /v1/)        # Check provider availability, model defaults, cache count
+POST   /api/ai/explain/prediction (or /v1/)    # Generate validated narrative for ML prediction
+POST   /api/ai/explain/forecast (or /v1/)      # Generate validated narrative for forecast
+
+# Decision Intelligence Layer
+GET    /api/decisions/overview                 # Executive KPI counts, active rules, recent actions
+GET    /api/decisions/scenarios                # List configured business scenarios
+GET    /api/decisions/rules                    # List business rules
+POST   /api/decisions/rules                    # Create business rule
+POST   /api/decisions/rules/validate           # Validate rule specification
+POST   /api/decisions/evaluate                 # Evaluate active rules against inputs
+GET    /api/decisions/recommendations          # List recommendations
+POST   /api/decisions/recommendations/{id}/status # Update recommendation status (approved, rejected, etc.)
+GET    /api/decisions/audit                    # Chronological governance audit log
+
+# Analytics, Question Router & Dashboards
 POST   /api/query                              # Structured query or NL question
 POST   /api/chart                              # Manual ChartSpec execution
-GET    /api/ai/providers                       # List configured LLM providers
-POST   /api/ai/analyze                         # AI analyst (checks cache, queries DuckDB, returns timings)
-GET    /api/ai/suggestions/{id}                # Schema-aware suggested questions
-
-# Dashboards
-GET    /api/dashboards
-GET    /api/default-dashboard                  # Auto-resolves chart query specs via DuckDB / cache
-GET    /api/dashboards/{id}
-POST   /api/dashboards/{id}/charts             # Stores query spec instead of static row array
-DELETE /api/dashboards/{id}/charts/{chart_id}
-POST   /api/dashboards/{id}/charts/{chart_id}/move
+POST   /api/ai/route                           # Intent question router (Analytics/Prediction/Forecast/Decision)
+POST   /api/ai/chat                            # Conversational chat endpoint
+GET    /api/dashboards                         # List saved dashboards
+GET    /api/default-dashboard                  # Default dashboard with dynamic query specs
+POST   /api/dashboards/{id}/charts             # Pin chart with stored query spec
 ```
 
 ---
 
 ## Testing & Verification
 
-### Run Automated Backend Tests (82 tests across core, ML prediction, forecasting, flexibility)
+### Run Automated Backend Tests (156 tests — 100% passing)
 ```powershell
+$env:PYTHONPATH="backend"
 .\backend\.venv\Scripts\python.exe -m pytest backend/tests -v
 ```
 
-### Build & Validate Frontend (TypeScript + Vite)
+### Run Frontend Business & Unit Tests (29 tests — 100% passing)
+```powershell
+npx tsx --test frontend/tests/businessMetrics.test.ts frontend/tests/xaiNarratives.test.ts frontend/tests/decisionRules.test.ts frontend/tests/aiExplanation.test.ts frontend/tests/unifiedCenters.test.ts
+```
+
+### Build & Validate Frontend (Clean production bundle)
 ```powershell
 npm --prefix frontend run build
 ```
@@ -240,13 +296,12 @@ npm --prefix frontend run build
 ```powershell
 .\backend\.venv\Scripts\python.exe scripts\verify_acceptance_workflow.py
 ```
-Verifies job creation, stage progression, metadata direct load, server-side preview pagination, DuckDB Parquet execution, query cache hit, dashboard query specs, and zero-downtime refresh with cache invalidation.
 
 ### Run Large Dataset Benchmarks
 ```powershell
 .\backend\.venv\Scripts\python.exe scripts\benchmark_large_dataset.py
 ```
 
-**Benchmark Results Summary ([`scripts/benchmark_results.json`](file:///D:/AIML/prediqo-v1/scripts/benchmark_results.json))**:
+**Benchmark Results Summary ([`scripts/benchmark_results.json`](scripts/benchmark_results.json))**:
 - **100,000 Rows**: 6.64 MB CSV $\rightarrow$ 2.01 MB Parquet. DuckDB aggregation in **23–49 ms**. Cache hit in **7.19 ms**.
 - **1,000,000 Rows**: 66.37 MB CSV $\rightarrow$ 18.12 MB Parquet (3.66x compression). DuckDB aggregation in **37–47 ms**. Cache hit in **7.40 ms**. Preview in **10.65 ms**.

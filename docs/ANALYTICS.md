@@ -195,7 +195,20 @@ Tested on local disk with 100k and 1M row transactional datasets ([`scripts/benc
 
 ---
 
-## 10. Roadmap for Further Analytics Development
+---
+
+## 10. Prediqo AI Conversational Routing & Question Answering
+
+The Analytics engine connects directly to the **Prediqo AI Question Router** (`backend/app/ai/router.py`) and unified chat interface:
+
+- **Descriptive Intent Detection**: The router detects questions seeking historical totals, category rankings, or aggregations (e.g. *"What is the total revenue by category?"*, *"Which city had the highest order count?"*) and routes them immediately to the DuckDB analytics path.
+- **Query Validation & Planning**: The AI query planner verifies dimensions and metrics against the dataset's persisted semantic model, rejecting invalid aggregations (`SUM(ID)`) and pushing column-pruned SQL plans to DuckDB.
+- **Cache Acceleration**: Repeated or identical analytical questions resolve from `QueryCache` in $< 10\text{ms}$.
+- **Faithful Insights**: Insights generated from analytical queries are derived strictly from actual returned rows without hallucinated numbers.
+
+---
+
+## 11. Roadmap for Further Analytics Development
 
 1. **Window Functions & Cohort Analysis**:
    - Retention curves, rolling cohort active user calculations, and customer lifetime value (LTV) cohorts.
@@ -205,3 +218,4 @@ Tested on local disk with 100k and 1M row transactional datasets ([`scripts/benc
    - Foreign-key relationship discovery and automated star-schema joins over multiple Parquet files.
 4. **Automated Anomaly Detection**:
    - Unsupervised z-score and IQR anomaly detection flagging abnormal transaction spikes or drops directly inside analytical queries.
+

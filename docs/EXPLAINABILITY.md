@@ -167,16 +167,16 @@ Returns trend slope, intercept, level state, seasonal repeating cycle, backtest 
 
 ## 5. Frontend User Experience
 
-### 5.1 Prediction Tab (`PredictionTab.tsx`)
-- **Live Prediction Drivers**: When a prediction is generated, automatically displays signed feature contributions with color-coded direction badges (`+` Green, `−` Red), magnitude bars, and relative weight %.
-- **Exact Additive Reconstruction**: Confirms $Y_0 + \sum \Delta_j = \hat{y}$ with an exact additive status badge.
+### 5.1 Prediction Center (`PredictionPage.tsx`)
+- **Live Prediction Drivers (AI Explanation Tab)**: When a prediction is generated, automatically displays signed feature contributions with color-coded direction badges (`+` Green, `−` Red), magnitude bars, and relative weight %.
+- **Exact Additive Reconstruction (Technical Details Tab)**: Confirms $Y_0 + \sum \Delta_j = \hat{y}$ with an exact additive status badge and machine-precision reconstruction log ($< 10^{-14}$).
 - **Encoded Components Accordion**: Expandable view for categorical features with multiple one-hot columns.
 - **Global XAI Toggle**: Switches the feature importance view to grouped original features with correlation warnings.
 
-### 5.2 Forecasting Tab (`ForecastingTab.tsx`)
-- **Trend Drivers & Rationale**: Explains linear slope, recent momentum change %, and projection rationale (e.g., linear drift vs. recursive exponential smoothing).
-- **Interval Reliability**: Visualizes empirical interval coverage (nominal 80% and 95%) achieved on historical holdout windows.
-- **Non-Causal Disclosures**: Clear guidance on extrapolation assumptions and statistical limitations.
+### 5.2 Forecasting Center (`ForecastingPage.tsx`)
+- **Trend Drivers & Rationale (AI Explanation Tab)**: Explains linear slope, recent momentum change %, and projection rationale (e.g., linear drift vs. recursive exponential smoothing).
+- **Interval Reliability (Analytics Tab)**: Visualizes empirical interval coverage (nominal 80% and 95%) achieved on historical holdout windows.
+- **Non-Causal Disclosures**: Clear guidance on extrapolation assumptions and statistical limitations across all tabs.
 
 ---
 

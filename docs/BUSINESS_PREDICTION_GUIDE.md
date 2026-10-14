@@ -44,21 +44,24 @@ Before training any model, Prediqo assesses the dataset’s readiness and displa
 
 Prediqo provides two distinct predictive modes:
 
-### A. Machine Learning Prediction (`PredictionTab`)
+### A. Machine Learning Prediction (`Prediction Center`)
 - **Use when**: You want to predict an outcome for an individual entity, transaction, customer, or account based on its characteristics.
+- **Accessible via**: **Prediction Center** with consistent 4-tab navigation (`Overview`, `Analytics`, `AI Explanation`, `Technical Details`).
 - **Regression (Numeric Measures)**: Predicts continuous values (e.g., Customer Lifetime Value in `$`, Delivery Delay in `days`, Order Quantity in `units`).
 - **Classification (Categories & Status)**: Predicts discrete states (e.g., Churn `Yes`/`No`, Loan Approval `Approved`/`Rejected`).
 - **Target Selection**: Displays inferred units, current null percentage, and a clear explanation of why the target is suitable.
 - **Feature Selection**: Select which inputs the model is allowed to learn from. Excluded identifiers (IDs, dates) are automatically isolated.
-- **Advanced Options**: Technical users can expand the **Advanced ML Validation Settings** to customize K-Fold cross-validation, time-aware chronological splits, or group-aware validation (e.g., grouping by Customer ID).
+- **Advanced Options**: Technical users can configure K-Fold cross-validation, time-aware chronological splits, or group-aware validation in the **Technical Details** tab.
 
-### B. Time-Series Forecasting (`ForecastingTab`)
+### B. Time-Series Forecasting (`Forecasting Center`)
 - **Use when**: You want to project how a metric evolves over future time periods (e.g., Total Sales over the next 14 days, Monthly Inquiries over the next 6 months).
+- **Accessible via**: **Forecasting Center** with consistent 4-tab navigation (`Overview`, `Analytics`, `AI Explanation`, `Technical Details`).
 - **Date Column**: The timestamp used to order historical records chronologically.
 - **Metric Column**: The numeric measure to aggregate and project.
 - **Frequency**: Daily, Weekly, or Monthly intervals.
 - **Aggregation**: How transactions are combined per period (`SUM` for volume/revenue, `AVG` for rates/prices, `COUNT` for transactions).
 - **Forecast Horizon**: The number of future periods to project (e.g., 7, 14, 30, or 60 periods).
+
 
 ---
 
@@ -122,11 +125,12 @@ Before executing business decisions based on model predictions or forecasts, ver
 
 ---
 
-## 7. Collapsible Technical Deep-Dive
+## 7. Dedicated Technical Details Tab
 
-For data scientists, ML engineers, and technical auditors, both tabs include an expandable **Technical Deep-Dive** section containing:
+For data scientists, ML engineers, and technical auditors, both centers provide a dedicated **Technical Details** tab containing:
 - **Candidate Benchmark Tables**: Side-by-side comparison of all evaluated algorithms with cross-validation scores, holdout scores, baseline uplifts, and fitting runtimes.
 - **Actual vs Predicted Holdout Charts**: Visual scatter/line comparison of holdout evaluation samples against ground truth.
 - **Confusion Matrix & Per-Class Metrics**: Exact counts of true positives, false positives, true negatives, and false negatives.
 - **Global Permutation Feature Importance**: Relative share of importance across the entire dataset with collinearity warnings.
-- **Mathematical Reconstruction Logs**: Additive sums, reference definitions, and verified numerical reconstruction tolerances.
+- **Mathematical Reconstruction Logs**: Additive sums, reference definitions, and verified numerical reconstruction tolerances ($< 10^{-14}$).
+
