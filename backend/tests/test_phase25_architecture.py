@@ -313,3 +313,61 @@ def test_safe_refresh_preserves_old_version_on_failure(sample_csv):
     assert current_meta["status"] == DatasetStatus.READY
     assert current_meta["version"] == 1
     assert get_parquet_path(ds_id).exists()
+
+
+def test_partitioned_dataset_preview_and_loading():
+    """Verify that partitioned datasets (file path with *.parquet wildcard) can be previewed via DuckDB and loaded via get_dataset."""
+    ds_id = "test_ds_part_preview"
+    parts_dir = DATASETS_DIR / ds_id
+    parts_dir.mkdir(parents=True, exist_ok=True)
+
+    df1 = pd.DataFrame({"id": [1, 2], "val": [10.0, 20.0], "cat": ["A", "B"]})
+    df2 = pd.DataFrame({"id": [3, 4], "val": [30.0, 40.0], "cat": ["A", "B"]})
+    df1.to_parquet(parts_dir / "part-000.parquet", index=False)
+    df2.to_parquet(parts_dir / "part-001.parquet", index=False)
+
+    meta = {
+        "dataset_id": ds_id,
+        "dataset_name": "Test Partitioned",
+        "source_type": "csv",
+        "version": 1,
+        "status": DatasetStatus.READY,
+        "error": None,
+        "file": str(parts_dir / "*.parquet"),
+        "columns": [
+            {"name": "id", "dtype": "int64", "semantic_type": "ID", "business_role": "identifier"},
+            {"name": "val", "dtype": "float64", "semantic_type": "MEASURE", "business_role": "metric"},
+            {"name": "cat", "dtype": "object", "semantic_type": "CATEGORY", "business_role": "category"},
+        ],
+        "profile": {"rows": 4, "columns": 3, "missing_values": 0, "numeric_columns": ["val"]},
+    }
+    (METADATA_DIR / f"{ds_id}.json").write_text(json.dumps(meta, indent=2))
+
+    try:
+        # 1. ParquetPath check
+        p_path = get_parquet_path(ds_id)
+        assert p_path is not None
+        assert p_path.exists()
+
+        # 2. Preview API endpoint directly queries DuckDB over *.parquet
+        resp = client.get(f"/api/datasets/{ds_id}/preview?limit=50")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_rows"] == 4
+        assert len(data["rows"]) == 4
+
+        # 3. In-memory fallback / get_dataset loading
+        ds = get_dataset(ds_id)
+        assert ds is not None
+        assert len(ds.dataframe) == 4
+
+        # 4. Deletion of partitioned dataset via API endpoint
+        del_resp = client.delete(f"/api/datasets/{ds_id}")
+        assert del_resp.status_code == 200
+        assert del_resp.json()["deleted"] == ds_id
+        assert not parts_dir.exists()
+        assert not (METADATA_DIR / f"{ds_id}.json").exists()
+    finally:
+        shutil.rmtree(parts_dir, ignore_errors=True)
+        (METADATA_DIR / f"{ds_id}.json").unlink(missing_ok=True)
+

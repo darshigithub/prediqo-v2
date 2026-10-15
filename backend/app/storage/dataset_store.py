@@ -4,12 +4,14 @@ Keeps an optional process-level in-memory cache for backwards compatibility;
 parquet + metadata JSON make datasets survive restarts.
 Separates metadata access from DataFrame loading so analysis doesn't load full data unnecessarily.
 """
+import glob
 import json
+import shutil
 import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
 
@@ -112,19 +114,79 @@ def list_datasets() -> list[dict]:
     return []
 
 
-def _resolve_file_path(meta: dict, dataset_id: str) -> Path:
+class ParquetPath(type(Path())):
+    """Path subclass that supports wildcard/partitioned parquet path existence checks."""
+
+    def exists(self) -> bool:
+        path_str = str(self)
+        if "*" in path_str:
+            return bool(glob.glob(path_str))
+        try:
+            if super().is_dir():
+                return bool(list(super().glob("*.parquet")))
+            return super().exists()
+        except OSError:
+            return False
+
+    def unlink(self, missing_ok: bool = False) -> None:
+        path_str = str(self)
+        if "*" in path_str:
+            matched = glob.glob(path_str)
+            if not matched and not missing_ok:
+                raise FileNotFoundError(f"No files matching {path_str}")
+            for f in matched:
+                try:
+                    Path(f).unlink(missing_ok=missing_ok)
+                except OSError:
+                    pass
+            parent_dir = self.parent
+            if parent_dir.is_dir():
+                try:
+                    shutil.rmtree(parent_dir, ignore_errors=missing_ok)
+                except OSError:
+                    pass
+            return
+        if super().is_dir():
+            shutil.rmtree(self, ignore_errors=missing_ok)
+            return
+        super().unlink(missing_ok=missing_ok)
+
+
+def parquet_exists(path: Optional[Union[str, Path]]) -> bool:
+    """Helper to check if a single file, directory, or wildcard parquet path exists."""
+    if not path:
+        return False
+    path_str = str(path)
+    if "*" in path_str:
+        return bool(glob.glob(path_str))
+    p = Path(path)
+    try:
+        if p.is_dir():
+            return bool(list(p.glob("*.parquet")))
+        return p.exists()
+    except OSError:
+        return False
+
+
+def _resolve_file_path(meta: dict, dataset_id: str) -> ParquetPath:
     raw = meta.get("file")
     if raw:
-        p = Path(raw)
-        if p.exists() or "*" in raw:
+        p = ParquetPath(raw)
+        if p.exists():
             return p
+        candidate_dir = DATASETS_DIR / dataset_id
+        if candidate_dir.is_dir() and any(candidate_dir.glob("*.parquet")):
+            return ParquetPath(candidate_dir / "*.parquet")
         candidate = DATASETS_DIR / p.name
         if candidate.exists():
-            return candidate
-    return DATASETS_DIR / f"{dataset_id}.parquet"
+            return ParquetPath(candidate)
+    candidate_dir = DATASETS_DIR / dataset_id
+    if candidate_dir.is_dir() and any(candidate_dir.glob("*.parquet")):
+        return ParquetPath(candidate_dir / "*.parquet")
+    return ParquetPath(DATASETS_DIR / f"{dataset_id}.parquet")
 
 
-def get_parquet_path(dataset_id: str) -> Optional[Path]:
+def get_parquet_path(dataset_id: str) -> Optional[ParquetPath]:
     """Returns the parquet path (single file or wildcard) without loading DataFrame."""
     meta = get_metadata(dataset_id)
     if not meta:
@@ -153,10 +215,19 @@ def get_dataset(dataset_id: str) -> Optional[StandardDataset]:
         return None
 
     file_path = _resolve_file_path(meta, dataset_id)
-    if not file_path.exists() and "*" not in str(file_path):
+    if not file_path.exists():
         return None
 
-    df = pd.read_parquet(file_path)
+    path_str = str(file_path)
+    if "*" in path_str:
+        matched = glob.glob(path_str)
+        if not matched:
+            return None
+        df = pd.read_parquet(matched)
+    elif file_path.is_dir():
+        df = pd.read_parquet(file_path)
+    else:
+        df = pd.read_parquet(file_path)
 
     # Reconstruct ColumnMeta from stored metadata (NO re-profiling, NO re-inference!)
     columns = [
@@ -212,7 +283,16 @@ def delete_dataset(dataset_id: str) -> bool:
     if not meta:
         return False
     file_path = _resolve_file_path(meta, dataset_id)
-    file_path.unlink(missing_ok=True)
+    try:
+        file_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    # Ensure partitioned dataset directory is also removed if it exists
+    parts_dir = DATASETS_DIR / dataset_id
+    if parts_dir.is_dir():
+        shutil.rmtree(parts_dir, ignore_errors=True)
+
     (METADATA_DIR / f"{dataset_id}.json").unlink(missing_ok=True)
     with _lock:
         _cache.pop(dataset_id, None)
